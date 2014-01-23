@@ -15,6 +15,7 @@ from django.http import HttpResponse, Http404
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.utils import translation
 from django.utils.translation import ugettext as _
 
 from xmodule.contentstore.content import StaticContent
@@ -26,7 +27,7 @@ from xmodule.modulestore.exceptions import ItemNotFoundError, InvalidLocationErr
 from util.json_request import JsonResponse
 from xmodule.modulestore.locator import BlockUsageLocator
 
-from ..transcripts_utils import (
+from xmodule.video_module.transcripts_utils import (
     generate_subs_from_source,
     generate_srt_from_sjson, remove_subs_from_store,
     download_youtube_subs, get_transcripts_from_youtube,
@@ -272,7 +273,7 @@ def check_transcripts(request):
         #check youtube local and server transcripts for equality
         if transcripts_presence['youtube_server'] and transcripts_presence['youtube_local']:
             try:
-                youtube_server_subs = get_transcripts_from_youtube(youtube_id)
+                youtube_server_subs = get_transcripts_from_youtube(youtube_id, settings, translation)
                 if json.loads(local_transcripts) == youtube_server_subs:  # check transcripts for equality
                     transcripts_presence['youtube_diff'] = False
             except GetTranscriptsFromYouTubeException:
@@ -415,7 +416,7 @@ def replace_transcripts(request):
         return error_response(response, 'YouTube id {} is not presented in request data.'.format(youtube_id))
 
     try:
-        download_youtube_subs({1.0: youtube_id}, item)
+        download_youtube_subs({1.0: youtube_id}, item, settings, translation)
     except GetTranscriptsFromYouTubeException as e:
         return error_response(response, e.message)
 

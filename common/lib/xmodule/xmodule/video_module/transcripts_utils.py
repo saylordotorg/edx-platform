@@ -9,16 +9,10 @@ import logging
 from pysrt import SubRipTime, SubRipItem, SubRipFile
 from lxml import etree
 
-from cache_toolbox.core import del_cached_content
-from django.conf import settings
-from django.utils.translation import ugettext as _
-
 from xmodule.exceptions import NotFoundError
 from xmodule.contentstore.content import StaticContent
 from xmodule.contentstore.django import contentstore
 from xmodule.modulestore import Location
-
-from .utils import get_modulestore
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +36,7 @@ def generate_subs(speed, source_speed, source_subs):
     Args:
     `speed`: float, for this speed subtitles will be generated,
     `source_speed`: float, speed of source_subs
-    `soource_subs`: dict, existing subtitles for speed `source_speed`.
+    `source_subs`: dict, existing subtitles for speed `source_speed`.
 
     Returns:
     `subs`: dict, actual subtitles.
@@ -64,30 +58,35 @@ def generate_subs(speed, source_speed, source_subs):
     return subs
 
 
-def save_subs_to_store(subs, subs_id, item):
+def save_subs_to_store(subs, subs_id, item, language='en'):
     """
     Save transcripts into `StaticContent`.
 
     Args:
     `subs_id`: str, subtitles id
     `item`: video module instance
+    `language`: two chars str ('uk'), language of translation of transcripts
 
     Returns: location of saved subtitles.
     """
     filedata = json.dumps(subs, indent=2)
     mime_type = 'application/json'
-    filename = 'subs_{0}.srt.sjson'.format(subs_id)
+    if language == 'en':
+        filename = 'subs_{0}.srt.sjson'.format(subs_id)
+    else:
+        filename = '{0}_subs_{1}.srt.sjson'.format(language, subs_id)
 
     content_location = StaticContent.compute_location(
         item.location.org, item.location.course, filename
     )
     content = StaticContent(content_location, filename, mime_type, filedata)
     contentstore().save(content)
+    from cache_toolbox.core import del_cached_content
     del_cached_content(content_location)
     return content_location
 
 
-def get_transcripts_from_youtube(youtube_id):
+def get_transcripts_from_youtube(youtube_id, settings, i18n):
     """
     Gets transcripts from youtube for youtube_id.
 
@@ -96,6 +95,7 @@ def get_transcripts_from_youtube(youtube_id):
 
     Returns (status, transcripts): bool, dict.
     """
+    _ = i18n.ugettext
     utf8_parser = etree.XMLParser(encoding='utf-8')
 
     youtube_api = copy.deepcopy(settings.YOUTUBE_API)
@@ -127,7 +127,7 @@ def get_transcripts_from_youtube(youtube_id):
     return {'start': sub_starts, 'end': sub_ends, 'text': sub_texts}
 
 
-def download_youtube_subs(youtube_subs, item):
+def download_youtube_subs(youtube_subs, item, settings, i18n):
     """
     Download transcripts from Youtube and save them to assets.
 
@@ -138,6 +138,7 @@ def download_youtube_subs(youtube_subs, item):
     Returns: None, if transcripts were successfully downloaded and saved.
     Otherwise raises GetTranscriptsFromYouTubeException.
     """
+    _ = i18n.ugettext
     highest_speed = highest_speed_subs = None
     missed_speeds = []
     # Iterate from lowest to highest speed and try to do download transcripts
@@ -146,7 +147,7 @@ def download_youtube_subs(youtube_subs, item):
         if not youtube_id:
             continue
         try:
-            subs = get_transcripts_from_youtube(youtube_id)
+            subs = get_transcripts_from_youtube(youtube_id, settings, i18n)
             if not subs:  # if empty subs are returned
                 raise GetTranscriptsFromYouTubeException
         except GetTranscriptsFromYouTubeException:
@@ -198,13 +199,14 @@ def remove_subs_from_store(subs_id, item):
     try:
         content = contentstore().find(content_location)
         contentstore().delete(content.get_id())
+        from cache_toolbox.core import del_cached_content
         del_cached_content(content.location)
         log.info("Removed subs %s from store", subs_id)
     except NotFoundError:
         pass
 
 
-def generate_subs_from_source(speed_subs, subs_type, subs_filedata, item):
+def generate_subs_from_source(speed_subs, subs_type, subs_filedata, item, language='en'):
     """Generate transcripts from source files (like SubRip format, etc.)
     and save them to assets for `item` module.
     We expect, that speed of source subs equal to 1
@@ -213,8 +215,10 @@ def generate_subs_from_source(speed_subs, subs_type, subs_filedata, item):
     :param subs_type: type of source subs: "srt", ...
     :param subs_filedata:unicode, content of source subs.
     :param item: module object.
+    :param language: str, language of translation of transcripts
     :returns: True, if all subs are generated and saved successfully.
     """
+    _ = item.runtime.service(item, "i18n").ugettext  # FIXME CHECK TODO
     if subs_type != 'srt':
         raise TranscriptsGenerationException(_("We support only SubRip (*.srt) transcripts format."))
     try:
@@ -245,7 +249,8 @@ def generate_subs_from_source(speed_subs, subs_type, subs_filedata, item):
         save_subs_to_store(
             generate_subs(speed, 1, subs),
             subs_id,
-            item
+            item,
+            language
         )
 
     return subs
@@ -284,6 +289,7 @@ def save_module(item, user):
     Proceed with additional save operations.
     """
     item.save()
+    from contentstore.utils import get_modulestore
     store = get_modulestore(Location(item.id))
     store.update_item(item, user.id if user else None)
 
