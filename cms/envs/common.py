@@ -276,7 +276,7 @@ PIPELINE_CSS = {
         'source_filenames': [
             'css/vendor/normalize.css',
             'css/vendor/font-awesome.css',
-            'js/vendor/CodeMirror/codemirror.css',
+            'js/vendor/CodeMirror/codemirror-3.21.0.css',
             'css/vendor/ui-lightness/jquery-ui-1.8.22.custom.css',
             'css/vendor/jquery.qtip.min.css',
             'js/vendor/markitup/skins/simple/style.css',
