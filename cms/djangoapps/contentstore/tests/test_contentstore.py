@@ -1464,25 +1464,6 @@ class ContentStoreTest(ModuleStoreTestCase):
         # check that user has no role for this course after deleting it
         self.assertEqual(self.user.roles.count(), 0)
 
-    def test_course_enrollments_and_roles_after_create_same_course_again(self):
-        """
-        Test that creating same course again after deleting it doesn't stop user to get
-        their default 'Student' role
-        """
-        test_course_data = self.assert_created_course(number_suffix=uuid4().hex)
-        course_id = _get_course_id(test_course_data)
-
-        # delete and recreate same course with same user
-        delete_course_and_groups(course_id, commit=True)
-        self.assert_created_course(number_suffix=uuid4().hex)
-
-        # check that user has enrollment for this course
-        self.assertEqual(CourseEnrollment.enrollment_counts(course_id).get('total'), 1)
-        self.assertTrue(CourseEnrollment.is_enrolled(self.user, course_id))
-        # check that user has his default student role for this course
-        self.assertEqual(self.user.roles.count(), 1)
-        self.assertEqual(self.user.roles.all()[0].name, 'Student')
-
     def test_create_course_duplicate_course(self):
         """Test new course creation - error path"""
         self.client.ajax_post('/course', self.course_data)
