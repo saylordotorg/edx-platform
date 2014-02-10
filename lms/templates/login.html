@@ -7,14 +7,14 @@
 
 <%block name="pagetitle">${_("Log into your {platform_name} Account").format(platform_name=platform_name)}</%block>
 
+<%block name="bodyclass">view-login</%block>
+
 <%block name="js_extra">
   <script type="text/javascript">
     $(function() {
 
-      var view_name = 'view-login';
-
       // adding js class for styling with accessibility in mind
-      $('body').addClass('js').addClass(view_name);
+      $('body').addClass('js');
 
       // show forgot password modal UI if URL contains matching DOM ID
       if ($.deparam.fragment()['forgot-password-modal'] !== undefined) {
@@ -130,7 +130,7 @@
         <ol class="list-input">
           <li class="field required text" id="field-email">
             <label for="email">${_('E-mail')}</label>
-            <input class="" id="email" type="email" name="email" value="" placeholder="example: username@domain.com" required aria-required="true" aria-described-by="email-tip" />
+            <input class="" id="email" type="email" name="email" value="" placeholder="${_('example: username@domain.com')}" required aria-required="true" aria-described-by="email-tip" />
             <span class="tip tip-input" id="email-tip">${_("This is the e-mail address you used to register with {platform}").format(platform=platform_name)}</span>
           </li>
           <li class="field required password" id="field-password">

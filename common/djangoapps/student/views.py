@@ -330,7 +330,7 @@ def signin_user(request):
     """
     This view will display the non-modal login form
     """
-    if (settings.FEATURES['AUTH_USE_MIT_CERTIFICATES'] and
+    if (settings.FEATURES['AUTH_USE_CERTIFICATES'] and
             external_auth.views.ssl_get_cert_from_request(request)):
         # SSL login doesn't require a view, so redirect
         # branding and allow that to process the login if it
@@ -357,7 +357,7 @@ def register_user(request, extra_context=None):
     """
     if request.user.is_authenticated():
         return redirect(reverse('dashboard'))
-    if settings.FEATURES.get('AUTH_USE_MIT_CERTIFICATES_IMMEDIATE_SIGNUP'):
+    if settings.FEATURES.get('AUTH_USE_CERTIFICATES_IMMEDIATE_SIGNUP'):
         # Redirect to branding to process their certificate if SSL is enabled
         # and registration is disabled.
         return redirect(reverse('root'))
@@ -561,6 +561,12 @@ def change_enrollment(request):
         if not has_access(user, course, 'enroll'):
             return HttpResponseBadRequest(_("Enrollment is closed"))
 
+        # see if we have already filled up all allowed enrollments
+        is_course_full = CourseEnrollment.is_course_full(course)
+
+        if is_course_full:
+            return HttpResponseBadRequest(_("Course is full"))
+
         # If this course is available in multiple modes, redirect them to a page
         # where they can choose which mode they want.
         available_modes = CourseMode.modes_for_course(course_id)
@@ -645,7 +651,7 @@ def accounts_login(request):
     """
     if settings.FEATURES.get('AUTH_USE_CAS'):
         return redirect(reverse('cas-login'))
-    if settings.FEATURES['AUTH_USE_MIT_CERTIFICATES']:
+    if settings.FEATURES['AUTH_USE_CERTIFICATES']:
         # SSL login doesn't require a view, so redirect
         # to branding and allow that to process the login.
         return redirect(reverse('root'))
@@ -912,12 +918,12 @@ def _do_create_account(post_vars):
         if len(User.objects.filter(username=post_vars['username'])) > 0:
             js['value'] = _("An account with the Public Username '{username}' already exists.").format(username=post_vars['username'])
             js['field'] = 'username'
-            return HttpResponse(json.dumps(js))
+            return JsonResponse(js, status=400)
 
         if len(User.objects.filter(email=post_vars['email'])) > 0:
             js['value'] = _("An account with the Email '{email}' already exists.").format(email=post_vars['email'])
             js['field'] = 'email'
-            return HttpResponse(json.dumps(js))
+            return JsonResponse(js, status=400)
 
         raise
 

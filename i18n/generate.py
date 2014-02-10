@@ -13,7 +13,11 @@ languages to generate.
 
 """
 
-import os, sys, logging
+import argparse
+import logging
+import os
+import sys
+
 from polib import pofile
 
 from i18n.config import BASE_DIR, CONFIGURATION
@@ -50,6 +54,7 @@ def merge(locale, target='django.po', sources=('django-partial.po',), fail_if_mi
     # clean up redunancies in the metadata
     merged_filename = locale_directory.joinpath('merged.po')
     clean_metadata(merged_filename)
+    clean_line_numbers(merged_filename)
 
     # rename merged.po -> django.po (default)
     target_filename = locale_directory.joinpath(target)
@@ -75,6 +80,17 @@ def clean_metadata(file):
     pomsgs.save()
 
 
+def clean_line_numbers(file):
+    """
+    Remove occurrence line numbers so that the generated files don't generate a lot of
+    line noise when they're committed.
+    """
+    pomsgs = pofile(file)
+    for entry in pomsgs:
+        entry.occurrences = [(filename, None) for (filename, lineno) in entry.occurrences]
+    pomsgs.save()
+
+
 def validate_files(dir, files_to_merge):
     """
     Asserts that the given files exist.
@@ -88,11 +104,16 @@ def validate_files(dir, files_to_merge):
             raise Exception("I18N: Cannot generate because file not found: {0}".format(pathname))
 
 
-def main():
+def main(argv=None):
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-    for locale in CONFIGURATION.locales:
-        merge_files(locale)
+    parser = argparse.ArgumentParser(description="Generate merged and compiled message files.")
+    parser.add_argument("--strict", action='store_true', help="Complain about missing files.")
+
+    args = parser.parse_args(argv or [])
+
+    for locale in CONFIGURATION.translated_locales:
+        merge_files(locale, fail_if_missing=args.strict)
     # Dummy text is not required. Don't raise exception if files are missing.
     merge_files(CONFIGURATION.dummy_locale, fail_if_missing=False)
 
@@ -101,4 +122,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

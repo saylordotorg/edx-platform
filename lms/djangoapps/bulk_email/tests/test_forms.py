@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Unit tests for bulk-email-related forms.
 """
@@ -23,8 +24,8 @@ class CourseAuthorizationFormTest(ModuleStoreTestCase):
     """Test the CourseAuthorizationAdminForm form for Mongo-backed courses."""
 
     def setUp(self):
-        # Make a mongo course
-        self.course = CourseFactory.create()
+        course_title = u"ẗëṡẗ title ｲ乇丂ｲ ﾶ乇丂丂ﾑg乇 ｷo尺 ﾑﾚﾚ тэѕт мэѕѕаБэ"
+        self.course = CourseFactory.create(display_name=course_title)
 
     def tearDown(self):
         """
@@ -84,7 +85,7 @@ class CourseAuthorizationFormTest(ModuleStoreTestCase):
         self.assertFalse(form.is_valid())
 
         msg = u'Error encountered (Course not found.)'
-        msg += ' --- Entered course id was: "{0}". '.format(bad_id)
+        msg += u' --- Entered course id was: "{0}". '.format(bad_id)
         msg += 'Please recheck that you have supplied a course id in the format: ORG/COURSE/RUN'
         self.assertEquals(msg, form._errors['course_id'][0])  # pylint: disable=protected-access
 
@@ -102,7 +103,7 @@ class CourseAuthorizationFormTest(ModuleStoreTestCase):
         self.assertFalse(form.is_valid())
 
         msg = u'Error encountered (Need more than 1 value to unpack)'
-        msg += ' --- Entered course id was: "{0}". '.format(bad_id)
+        msg += u' --- Entered course id was: "{0}". '.format(bad_id)
         msg += 'Please recheck that you have supplied a course id in the format: ORG/COURSE/RUN'
         self.assertEquals(msg, form._errors['course_id'][0])  # pylint: disable=protected-access
 
@@ -126,7 +127,7 @@ class CourseAuthorizationXMLFormTest(ModuleStoreTestCase):
         self.assertFalse(form.is_valid())
 
         msg = u"Course Email feature is only available for courses authored in Studio. "
-        msg += '"{0}" appears to be an XML backed course.'.format(course_id)
+        msg += u'"{0}" appears to be an XML backed course.'.format(course_id)
         self.assertEquals(msg, form._errors['course_id'][0])  # pylint: disable=protected-access
 
         with self.assertRaisesRegexp(ValueError, "The CourseAuthorization could not be created because the data didn't validate."):

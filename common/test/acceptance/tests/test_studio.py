@@ -3,23 +3,23 @@ Acceptance tests for Studio.
 """
 from bok_choy.web_app_test import WebAppTest
 
-from ..edxapp_pages.studio.asset_index import AssetIndexPage
-from ..edxapp_pages.studio.auto_auth import AutoAuthPage
-from ..edxapp_pages.studio.checklists import ChecklistsPage
-from ..edxapp_pages.studio.course_import import ImportPage
-from ..edxapp_pages.studio.course_info import CourseUpdatesPage
-from ..edxapp_pages.studio.edit_tabs import StaticPagesPage
-from ..edxapp_pages.studio.export import ExportPage
-from ..edxapp_pages.studio.howitworks import HowitworksPage
-from ..edxapp_pages.studio.index import DashboardPage
-from ..edxapp_pages.studio.login import LoginPage
-from ..edxapp_pages.studio.manage_users import CourseTeamPage
-from ..edxapp_pages.studio.overview import CourseOutlinePage
-from ..edxapp_pages.studio.settings import SettingsPage
-from ..edxapp_pages.studio.settings_advanced import AdvancedSettingsPage
-from ..edxapp_pages.studio.settings_graders import GradingPage
-from ..edxapp_pages.studio.signup import SignupPage
-from ..edxapp_pages.studio.textbooks import TextbooksPage
+from ..pages.studio.asset_index import AssetIndexPage
+from ..pages.studio.auto_auth import AutoAuthPage
+from ..pages.studio.checklists import ChecklistsPage
+from ..pages.studio.course_import import ImportPage
+from ..pages.studio.course_info import CourseUpdatesPage
+from ..pages.studio.edit_tabs import StaticPagesPage
+from ..pages.studio.export import ExportPage
+from ..pages.studio.howitworks import HowitworksPage
+from ..pages.studio.index import DashboardPage
+from ..pages.studio.login import LoginPage
+from ..pages.studio.manage_users import CourseTeamPage
+from ..pages.studio.overview import CourseOutlinePage
+from ..pages.studio.settings import SettingsPage
+from ..pages.studio.settings_advanced import AdvancedSettingsPage
+from ..pages.studio.settings_graders import GradingPage
+from ..pages.studio.signup import SignupPage
+from ..pages.studio.textbooks import TextbooksPage
 from ..fixtures.course import CourseFixture
 
 from .helpers import UniqueCourseTest
@@ -30,9 +30,9 @@ class LoggedOutTest(WebAppTest):
     Smoke test for pages in Studio that are visible when logged out.
     """
 
-    @property
-    def page_object_classes(self):
-        return [LoginPage, HowitworksPage, SignupPage]
+    def setUp(self):
+        super(LoggedOutTest, self).setUp()
+        self.pages = [LoginPage(self.browser), HowitworksPage(self.browser), SignupPage(self.browser)]
 
     def test_page_existence(self):
         """
@@ -40,8 +40,8 @@ class LoggedOutTest(WebAppTest):
         Rather than fire up the browser just to check each url,
         do them all sequentially in this testcase.
         """
-        for page in ['login', 'howitworks', 'signup']:
-            self.ui.visit('studio.{0}'.format(page))
+        for page in self.pages:
+            page.visit()
 
 
 class LoggedInPagesTest(WebAppTest):
@@ -49,16 +49,18 @@ class LoggedInPagesTest(WebAppTest):
     Tests that verify the pages in Studio that you can get to when logged
     in and do not have a course yet.
     """
-    @property
-    def page_object_classes(self):
-        return [AutoAuthPage, DashboardPage]
+
+    def setUp(self):
+        super(LoggedInPagesTest, self).setUp()
+        self.auth_page = AutoAuthPage(self.browser, staff=True)
+        self.dashboard_page = DashboardPage(self.browser)
 
     def test_dashboard_no_courses(self):
         """
         Make sure that you can get to the dashboard page without a course.
         """
-        self.ui.visit('studio.auto_auth', staff=True)
-        self.ui.visit('studio.dashboard')
+        self.auth_page.visit()
+        self.dashboard_page.visit()
 
 
 class CoursePagesTest(UniqueCourseTest):
@@ -69,23 +71,29 @@ class CoursePagesTest(UniqueCourseTest):
 
     COURSE_ID_SEPARATOR = "."
 
-    @property
-    def page_object_classes(self):
-        return [
-            AutoAuthPage, AssetIndexPage, ChecklistsPage, ImportPage, CourseUpdatesPage,
-            StaticPagesPage, ExportPage, CourseTeamPage, CourseOutlinePage,
-            SettingsPage, AdvancedSettingsPage, GradingPage, TextbooksPage
-        ]
+    def setUp(self):
+        """
+        Install a course with no content using a fixture.
+        """
+        super(UniqueCourseTest, self).setUp()
 
-    @property
-    def fixtures(self):
-        course_fix = CourseFixture(
+        CourseFixture(
             self.course_info['org'],
             self.course_info['number'],
             self.course_info['run'],
             self.course_info['display_name']
-        )
-        return [course_fix]
+        ).install()
+
+        self.auth_page = AutoAuthPage(self.browser, staff=True)
+
+        self.pages = [
+            clz(self.browser, self.course_info['org'], self.course_info['number'], self.course_info['run'])
+            for clz in [
+                AssetIndexPage, ChecklistsPage, ImportPage, CourseUpdatesPage,
+                StaticPagesPage, ExportPage, CourseTeamPage, CourseOutlinePage, SettingsPage,
+                AdvancedSettingsPage, GradingPage, TextbooksPage
+            ]
+        ]
 
     def test_page_existence(self):
         """
@@ -93,14 +101,9 @@ class CoursePagesTest(UniqueCourseTest):
         Rather than fire up the browser just to check each url,
         do them all sequentially in this testcase.
         """
-        pages = [
-            'uploads', 'checklists', 'import', 'updates', 'tabs', 'export',
-            'team', 'outline', 'settings', 'advanced', 'grading', 'textbooks'
-        ]
-
         # Log in
-        self.ui.visit('studio.auto_auth', staff=True)
+        self.auth_page.visit()
 
         # Verify that each page is available
-        for page in pages:
-            self.ui.visit('studio.{0}'.format(page), course_id=self.course_id)
+        for page in self.pages:
+            page.visit()

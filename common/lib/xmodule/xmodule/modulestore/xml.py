@@ -405,8 +405,9 @@ class XMLModuleStore(ModuleStoreReadBase):
         try:
             course_descriptor = self.load_course(course_dir, errorlog.tracker)
         except Exception as e:
-            msg = "ERROR: Failed to load course '{0}': {1}".format(course_dir.encode("utf-8"),
-                    unicode(e))
+            msg = "ERROR: Failed to load course '{0}': {1}".format(
+                course_dir.encode("utf-8"), unicode(e)
+            )
             log.exception(msg)
             errorlog.tracker(msg)
 
@@ -568,14 +569,17 @@ class XMLModuleStore(ModuleStoreReadBase):
             if not os.path.isfile(filepath):
                 continue
 
+            if filepath.endswith('~'):  # skip *~ files
+                continue
+
             with open(filepath) as f:
                 try:
                     html = f.read().decode('utf-8')
                     # tabs are referenced in policy.json through a 'slug' which is just the filename without the .html suffix
                     slug = os.path.splitext(os.path.basename(filepath))[0]
                     loc = course_descriptor.scope_ids.usage_id.replace(category=category, name=slug)
-                    module = system.construct_xblock_from_class(
-                        HtmlDescriptor,
+                    module = system.construct_xblock(
+                        category,
                         # We're loading a descriptor, so student_id is meaningless
                         # We also don't have separate notions of definition and usage ids yet,
                         # so we use the location for both

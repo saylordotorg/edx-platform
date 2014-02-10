@@ -5,7 +5,7 @@ from path import path
 
 # BASE_DIR is the working directory to execute django-admin commands from.
 # Typically this should be the 'edx-platform' directory.
-BASE_DIR = path(__file__).abspath().dirname().joinpath('..').normpath()
+BASE_DIR = path(__file__).abspath().dirname().dirname()
 
 # LOCALE_DIR contains the locale files.
 # Typically this should be 'edx-platform/conf/locale'
@@ -69,5 +69,11 @@ class Configuration(object):
         """
         return self.get_messages_dir(self.source_locale)
 
+    @property
+    def translated_locales(self):
+        """
+        Returns the set of locales to be translated (ignoring the source_locale).
+        """
+        return sorted(set(self.locales) - set([self.source_locale]))
 
 CONFIGURATION = Configuration(LOCALE_DIR.joinpath('config.yaml').normpath())
