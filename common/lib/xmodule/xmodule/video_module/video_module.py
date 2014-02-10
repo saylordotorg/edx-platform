@@ -578,7 +578,9 @@ class VideoDescriptor(VideoFields, TabsEditingDescriptor, EmptyDataRawDescriptor
             else:
                 editable_fields.pop('source')
 
-        editable_fields.pop('transcripts')
+        editable_fields['transcripts']['languages'] = [i[0] for i in settings.ALL_LANGUAGES]
+        editable_fields['transcripts']['type'] = 'VideoDict'
+
         return editable_fields
 
     @classmethod
