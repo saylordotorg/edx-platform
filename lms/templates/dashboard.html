@@ -5,6 +5,12 @@
   from django.core.urlresolvers import reverse
   import waffle
 %>
+
+<%
+  cert_name_base = settings.CERT_NAME_BASE
+  cert_name_append = settings.CERT_NAME_APPEND
+%>
+
 <%inherit file="main.html" />
 
 <%namespace name='static' file='static_content.html'/>
@@ -403,11 +409,11 @@
     <div id="change_name_body">
       <form id="change_name_form">
         <div id="change_name_error" class="modal-form-error"> </div>
-        <p>${_("To uphold the credibility of {platform} certificates, all name changes will be logged and recorded.").format(platform=settings.PLATFORM_NAME)}</p>
+        <p>${_("To uphold the credibility of {platform} {cert_name_base}s, all name changes will be logged and recorded.").format(platform=settings.PLATFORM_NAME, cert_name_base=cert_name_base)}</p>
         <br/>
         <fieldset>
           <div class="input-group">
-            <label>${_("Enter your desired full name, as it will appear on the {platform} certificates:").format(platform=settings.PLATFORM_NAME)}</label>
+            <label>${_("Enter your desired full name, as it will appear on the {platform} {cert_name_base}s:").format(platform=settings.PLATFORM_NAME, cert_name_base=cert_name_base)}</label>
             <input id="new_name_field" value="" type="text" />
             <label>${_("Reason for name change:")}</label>
             <textarea id="name_rationale_field" value=""></textarea>
