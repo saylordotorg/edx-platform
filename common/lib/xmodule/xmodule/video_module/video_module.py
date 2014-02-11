@@ -578,7 +578,6 @@ class VideoDescriptor(VideoFields, TabsEditingDescriptor, EmptyDataRawDescriptor
             else:
                 editable_fields.pop('source')
 
-        editable_fields.pop('transcripts')
         return editable_fields
 
     @classmethod
