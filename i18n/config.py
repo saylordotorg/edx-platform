@@ -17,11 +17,13 @@ class Configuration(object):
     Reads localization configuration in json format.
     """
     DEFAULTS = {
+        'dummy_locales': [],
         'generate_merge': {},
         'ignore_dirs': [],
         'locales': ['en'],
         'segment': {},
         'source_locale': 'en',
+        'third_party': [],
     }
 
     def __init__(self, filename):
@@ -41,18 +43,6 @@ class Configuration(object):
         if name in self.DEFAULTS:
             return self._config.get(name, self.DEFAULTS[name])
         raise AttributeError("Configuration has no such setting: {!r}".format(name))
-
-    @property
-    def dummy_locale(self):
-        """
-        Returns a locale to use for the dummy text, e.g. 'eo'.
-        Throws exception if no dummy-locale is declared.
-        The locale is a string.
-        """
-        dummy = self._config.get('dummy-locale', None)
-        if not dummy:
-            raise Exception('Could not read dummy-locale from configuration file.')
-        return dummy
 
     def get_messages_dir(self, locale):
         """

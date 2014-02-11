@@ -498,7 +498,8 @@ LANGUAGE_CODE = 'en'  # http://www.i18nguy.com/unicode/language-identifiers.html
 
 # Sourced from http://www.localeplanet.com/icu/ and wikipedia
 LANGUAGES = (
-    ('eo', u'Dummy Language (Esperanto)'),  # Dummy languaged used for testing
+    ('eo', u'Dummy Language (Esperanto)'),  # Dummy language used for testing
+    ('fake2', u'Fake translations'),        # Another dummy language for testing (not pushed to prod)
 
     ('ach', u'Acholi'),  # Acoli
     ('ar', u'العربية'),  # Arabic
@@ -508,6 +509,7 @@ LANGUAGES = (
     ('cs', u'Čeština'),  # Czech
     ('cy', u'Cymraeg'),  # Welsh
     ('de-de', u'Deutsch (Deutschland)'),  # German (Germany)
+    ('el', u'Ελληνικά'),  # Greek
     ('en@lolcat', u'LOLCAT English'),  # LOLCAT English
     ('en@pirate', u'Pirate English'),  # Pirate English
     ('es-419', u'Español (Latinoamérica)'),  # Spanish (Latin America)

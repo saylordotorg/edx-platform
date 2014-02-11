@@ -8,7 +8,7 @@ local filesystem into machine-readable .mo files. This is typically
 necessary as part of the build process since these .mo files are
 needed by Django when serving the web app.
 
-The configuration file (in edx-platform/conf/locale/config) specifies which
+The configuration file (in edx-platform/conf/locale/config.yaml) specifies which
 languages to generate.
 
 """
@@ -115,7 +115,8 @@ def main(argv=None):
     for locale in CONFIGURATION.translated_locales:
         merge_files(locale, fail_if_missing=args.strict)
     # Dummy text is not required. Don't raise exception if files are missing.
-    merge_files(CONFIGURATION.dummy_locale, fail_if_missing=False)
+    for locale in CONFIGURATION.dummy_locales:
+        merge_files(locale, fail_if_missing=False)
 
     compile_cmd = 'django-admin.py compilemessages'
     execute(compile_cmd, working_directory=BASE_DIR)
