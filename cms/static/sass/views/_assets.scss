@@ -211,6 +211,12 @@
           font-weight: 700;
         }
 
+        #toggle-external-internal {
+          .show-internal {
+            display: none;
+          }
+        }
+
         // CASE: embed column
         &.embed-col {
           padding-left: ($baseline*0.75);
@@ -308,7 +314,11 @@
             background: none;
             width: 100%;
             color: $gray-l2;
-
+            
+            &.external-url {
+              display: none;
+            }
+            
             &:focus {
               background-color: $white;
               box-shadow: 0 1px 5px $shadow-l1 inset;

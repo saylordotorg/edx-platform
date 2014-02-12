@@ -16,7 +16,12 @@
             <th class="thumb-col"><%= gettext("Preview") %></th>
             <th class="name-col sortable-column"><span class="column-sort-link" id="js-asset-name-col"><%= gettext("Name") %></span></th>
             <th class="date-col sortable-column"><span class="column-sort-link" id="js-asset-date-col"><%= gettext("Date Added") %></span></th>
-            <th class="embed-col"><%= gettext("URL") %></th>
+            <th class="embed-col">
+                <%= gettext("URL") %> (<a href="#" id="toggle-external-internal">
+                    <span class="options show-external"><%= gettext("Show external URLs") %></span>
+                    <span class="options show-internal"><%= gettext("Show internal URLs") %></span>
+                </a>)
+            </th>
             <th class="actions-col"><span class="sr"><%= gettext("Actions") %></span></th>
         </tr>
         </thead>
