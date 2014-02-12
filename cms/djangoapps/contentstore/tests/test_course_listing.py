@@ -35,21 +35,6 @@ class TestCourseListing(ModuleStoreTestCase):
         self.client = AjaxEnabledTestClient()
         self.client.login(username=self.user.username, password='test')
 
-        # create a course via the view handler to create course groups with new format e.g. 'edX.Course.Run'
-        self.course_location = Location(['i4x', 'Org_1', 'Course_1', 'course', 'Run_1'])
-        self.course_locator = loc_mapper().translate_location(
-            self.course_location.course_id, self.course_location, False, True
-        )
-        self.client.ajax_post(
-            self.course_locator.url_reverse('course'),
-            {
-                'org': self.course_location.org,
-                'number': self.course_location.course,
-                'display_name': 'test course',
-                'run': self.course_location.name,
-            }
-        )
-
     def _create_course_with_access_groups(self, course_location, group_name_format=GROUP_NAME_WITH_DOTS):
         """
         Create dummy course with 'CourseFactory' and role (instructor/staff) groups with provided group_name_format
@@ -95,22 +80,29 @@ class TestCourseListing(ModuleStoreTestCase):
         """
         Test getting courses with new access group format e.g. 'instructor_edx.course.run'
         """
+        course_location = Location(['i4x', 'Org1', 'Course1', 'course', 'Run1'])
+        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+
         # get courses through iterating all courses
         courses_list = _accessible_courses_list(self.request)
         self.assertEqual(len(courses_list), 1)
 
         # get courses by reversing group name formats
         success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        if success:
-            self.assertEqual(len(courses_list_by_groups), 1)
-            # check both course lists have same courses
-            self.assertEqual(courses_list, courses_list_by_groups)
+        self.assertTrue(success)
+        self.assertEqual(len(courses_list_by_groups), 1)
+        # check both course lists have same courses
+        self.assertEqual(courses_list, courses_list_by_groups)
 
     def test_get_course_list_with_old_group_formats(self):
         """
         Test getting all courses with old course role (instructor/staff) groups
         """
-        # create a new course with old group name format e.g. 'instructor_edX/Course/Run'
+        # create a course with new groups name format e.g. 'instructor_edx.course.run'
+        course_location = Location(['i4x', 'Org_1', 'Course_1', 'course', 'Run_1'])
+        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+
+        # create a course with old groups name format e.g. 'instructor_edX/Course/Run'
         old_course_location = Location(['i4x', 'Org_2', 'Course_2', 'course', 'Run_2'])
         self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES)
 
@@ -118,8 +110,9 @@ class TestCourseListing(ModuleStoreTestCase):
         courses_list = _accessible_courses_list(self.request)
         self.assertEqual(len(courses_list), 2)
 
-        # get courses by reversing group name formats
+        # get courses by reversing groups name
         success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
+        # self.assertEqual(self.user.groups.all(), 55)
         self.assertTrue(success)
         self.assertEqual(len(courses_list_by_groups), 2)
 

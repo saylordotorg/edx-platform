@@ -48,7 +48,7 @@ from django_comment_common.utils import seed_permissions_roles
 from student.models import CourseEnrollment
 
 from xmodule.html_module import AboutDescriptor
-from xmodule.modulestore.locator import BlockUsageLocator
+from xmodule.modulestore.locator import BlockUsageLocator, CourseLocator
 from course_creators.views import get_course_creator_status, add_user_with_status_unrequested
 from contentstore import utils
 from student.roles import CourseInstructorRole, CourseStaffRole, CourseCreatorRole, GlobalStaff
@@ -192,57 +192,23 @@ def _accessible_courses_list_from_groups(request):
         Q(name__startswith='instructor_') | Q(name__startswith='staff_')).values_list('name', flat=True)
 
     # we can only get course_ids from role names with the new format (instructor_org/number/run or
-    # instructor_org.number.run but not instructor_number) and only for those course_ids which do
-    # not have '.' in the number or run (instructor_org.number.run and not instructor_org.num.ber.run).
-    # So if for any role name either of these conditions fail do not proceed."
+    # instructor_org.number.run but not instructor_number).
     for user_staff_group_name in user_staff_group_names:
-        # to avoid duplication try to convert all course_id's to format with slashes e.g. "edX/course/run"
-        course_id = re.sub(r'^(instructor_|staff_)', '', user_staff_group_name)
+        # to avoid duplication try to convert all course_id's to format with dots e.g. "edx.course.run"
+        course_id = re.sub(r'^(instructor_|staff_)', '', user_staff_group_name).replace('/', '.').lower()
+        course_ids.add(course_id)
 
-        course_id_split = course_id.split('.')
-        if len(course_id_split) == 3:
-            course_ids.add(tuple(course_id_split))
-        else:
-            course_id_split = course_id.split('/')
-            if len(course_id_split) == 3:
-                course_ids.add(tuple(course_id_split))
-            else:
-                # if we cannot parse even one course_id from group name abort.
-                return False, []
-
-    for org, course, name in list(course_ids):
-        course_location = Location('i4x', org, course, 'course', name)
+    for course_id in list(course_ids):
+        # get course_location with lowercase id
+        course_location = loc_mapper().translate_locator_to_location(
+            CourseLocator(package_id=course_id), get_course=True, lower_only=True)
+        if course_location is None:
+            return False, []
         try:
             course = modulestore('direct').get_item(course_location)
             courses_list.append(course)
         except ItemNotFoundError:
-            course = None
-
-        if course is None:
-            # since access groups are being stored in lowercase, also do a case-insensitive search
-            # for the potential course id.
-            course_search_location = bson.son.SON({
-                '_id.tag': 'i4x',
-                # pylint: disable=no-member
-                '_id.org': re.compile(u'^{}$'.format(course_location.org), re.IGNORECASE | re.UNICODE),
-                # pylint: disable=no-member
-                '_id.course': re.compile(u'^{}$'.format(course_location.course), re.IGNORECASE | re.UNICODE),
-                '_id.category': 'course',
-                # pylint: disable=no-member
-                '_id.name': re.compile(u'^{}$'.format(course_location.name), re.IGNORECASE | re.UNICODE)
-            })
-            courses = modulestore().collection.find(course_search_location, fields=('_id'))
-            if courses.count() == 1:
-                mongo_course_id = courses[0].get('_id')
-                course_location = Location('i4x', mongo_course_id.get('org'), mongo_course_id.get('course'),
-                                           'course', mongo_course_id.get('name'))
-                try:
-                    course = modulestore('direct').get_item(course_location)
-                    courses_list.append(course)
-                except ItemNotFoundError:
-                    return False, []
-            else:
-                return False, []
+            return False, []
 
     return True, courses_list
 
