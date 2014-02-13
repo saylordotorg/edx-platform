@@ -6,32 +6,25 @@ define(
 function () {
 
     var Resizer = function (params) {
-        var defaults = {
-                container: window,
-                element: null,
-                containerRatio: null,
-                elementRatio: null
-            },
-            callbacksList = [],
-            module = {},
-            mode = null,
-            config;
+        this.defaults = {
+            container: window,
+            element: null,
+            containerRatio: null,
+            elementRatio: null
+        };
+        this.callbacksList = [];
+        this.mode = null;
+        this.config = null;
 
-        initialize.apply(module, arguments);
+        initialize.apply(this, arguments);
 
-        return $.extend(true, module, {
-            align: align,
-            alignByWidthOnly: alignByWidthOnly,
-            alignByHeightOnly: alignByHeightOnly,
-            setParams: initialize,
-            setMode: setMode,
-            callbacks: {
-                add: addCallback,
-                once: addOnceCallback,
-                remove: removeCallback,
-                removeAll: removeCallbacks
-            }
-        });
+        this.setParams = initialize;
+        this.callbacks = {
+            add: _.bind(addCallback, this),
+            once: _.bind(addOnceCallback, this),
+            remove: _.bind(removeCallback, this),
+            removeAll: _.bind(removeCallbacks, this)
+        };
     };
 
     Resizer.prototype = {
@@ -51,29 +44,29 @@ function () {
     return Resizer;
 
     function initialize(params) {
-        if (config) {
-            config = $.extend(true, config, params);
+        if (this.config) {
+            this.config = $.extend(true, this.config, params);
         } else {
-            config = $.extend(true, {}, defaults, params);
+            this.config = $.extend(true, {}, this.defaults, params);
         }
 
-        if (!config.element) {
+        if (!this.config.element) {
             console.log(
                 '[Video info]: Required parameter `element` is not passed.'
             );
         }
 
-        return module;
+        return this;
     }
 
     function getData() {
-        var container = $(config.container),
+        var container = $(this.config.container),
             containerWidth = container.width(),
             containerHeight = container.height(),
-            containerRatio = config.containerRatio,
+            containerRatio = this.config.containerRatio,
 
-            element = $(config.element),
-            elementRatio = config.elementRatio;
+            element = $(this.config.element),
+            elementRatio = this.config.elementRatio;
 
         if (!containerRatio) {
             containerRatio = containerWidth/containerHeight;
@@ -93,34 +86,34 @@ function () {
     }
 
     function align() {
-        var data = getData();
+        var data = this.getData();
 
-        switch (mode) {
+        switch (this.mode) {
             case 'height':
-                alignByHeightOnly();
+                this.alignByHeightOnly();
                 break;
 
             case 'width':
-                alignByWidthOnly();
+                this.alignByWidthOnly();
                 break;
 
             default:
                 if (data.containerRatio >= data.elementRatio) {
-                    alignByHeightOnly();
+                    this.alignByHeightOnly();
 
                 } else {
-                    alignByWidthOnly();
+                    this.alignByWidthOnly();
                 }
                 break;
         }
 
-        fireCallbacks();
+        this.fireCallbacks();
 
-        return module;
+        return this;
     }
 
     function alignByWidthOnly() {
-        var data = getData(),
+        var data = this.getData(),
             height = data.containerWidth/data.elementRatio;
 
         data.element.css({
@@ -130,11 +123,11 @@ function () {
             'left': 0
         });
 
-        return module;
+        return this;
     }
 
     function alignByHeightOnly() {
-        var data = getData(),
+        var data = this.getData(),
             width = data.containerHeight*data.elementRatio;
 
         data.element.css({
@@ -144,60 +137,64 @@ function () {
             'left': 0.5*(data.containerWidth - width)
         });
 
-        return module;
+        return this;
     }
 
     function setMode(param) {
         if (_.isString(param)) {
-            mode = param;
-            align();
+            this.mode = param;
+            this.align();
         }
 
-        return module;
+        return this;
     }
 
     function addCallback(func) {
         if ($.isFunction(func)) {
-            callbacksList.push(func);
+            this.callbacksList.push(func);
         } else {
             console.error('[Video info]: TypeError: Argument is not a function.');
         }
 
-        return module;
+        return this;
     }
 
     function addOnceCallback(func) {
+        console.log('[addOnceCallback]: this = ', this);
+
         if ($.isFunction(func)) {
             var decorator = function () {
                 func();
-                removeCallback(func);
+                this.removeCallback(func);
             };
 
-            addCallback(decorator);
+            this.addCallback(decorator);
         } else {
             console.error('[Video info]: TypeError: Argument is not a function.');
         }
 
-        return module;
+        return this;
     }
 
     function fireCallbacks() {
-        $.each(callbacksList, function(index, callback) {
-             callback();
+        var _this = this;
+
+        $.each(this.callbacksList, function(index, callback) {
+             callback.apply(_this);
         });
     }
 
     function removeCallbacks() {
-        callbacksList.length = 0;
+        this.callbacksList.length = 0;
 
-        return module;
+        return this;
     }
 
     function removeCallback(func) {
-        var index = $.inArray(func, callbacksList);
+        var index = $.inArray(func, this.callbacksList);
 
         if (index !== -1) {
-            return callbacksList.splice(index, 1);
+            return this.callbacksList.splice(index, 1);
         }
     }
 });
