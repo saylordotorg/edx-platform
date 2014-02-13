@@ -7,6 +7,10 @@ describe 'Problem', ->
     @stubbedJax = root: jasmine.createSpyObj('jax.root', ['toMathML'])
     MathJax.Hub.getAllJax.andReturn [@stubbedJax]
     window.update_schematics = ->
+    # mock the screen reader alert
+    window.SR = 
+      readElts: `function(){}`
+      readText: `function(){}`
 
     # Load this function from spec/helper.coffee
     # Note that if your test fails with a message like:
@@ -226,7 +230,7 @@ describe 'Problem', ->
       it 'toggle the show answer button', ->
         spyOn($, 'postWithPrefix').andCallFake (url, callback) -> callback(answers: {})
         @problem.show()
-        expect($('.show .show-label')).toHaveText 'Hide Answer(s)'
+        expect($('.show .show-label')).toHaveText 'Hide Answers'
 
       it 'add the showed class to element', ->
         spyOn($, 'postWithPrefix').andCallFake (url, callback) -> callback(answers: {})
@@ -425,7 +429,7 @@ describe 'Problem', ->
 
       it 'toggle the show answer button', ->
         @problem.show()
-        expect($('.show .show-label')).toHaveText 'Show Answer(s)'
+        expect($('.show .show-label')).toHaveText 'Show Answers'
 
       it 'remove the showed class from element', ->
         @problem.show()
