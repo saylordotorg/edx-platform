@@ -2,7 +2,6 @@
 Script for traversing all courses and add/modify mapping with 'lower_id' and 'lower_course_id'
 """
 from django.core.management.base import BaseCommand
-from xmodule.modulestore import Location
 from xmodule.modulestore.django import modulestore, loc_mapper
 
 
@@ -17,7 +16,7 @@ class Command(BaseCommand):
     
     def handle(self, *args, **options):
         # get all courses
-        courses = modulestore('direct').get_items(Location(None, None, None, 'course', None))
+        courses = modulestore('direct').get_courses()
         for course in courses:
             # create/modify map_entry in 'loc_mapper' with 'lower_id' and 'lower_course_id'
             loc_mapper().create_map_entry(course.location)

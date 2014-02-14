@@ -233,6 +233,10 @@ def course_listing(request):
             # so fallback to iterating through all courses
             courses = _accessible_courses_list(request)
 
+            # update location entry in "loc_mapper" for user courses (add keys 'lower_id' and 'lower_course_id')
+            for course in courses:
+                loc_mapper().create_map_entry(course.location)
+
     def format_course_for_view(course):
         """
         return tuple of the data which the view requires for each course
