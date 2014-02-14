@@ -21,6 +21,7 @@ if Backbone?
         @editView = null
 
       @showView = new ResponseCommentShowView(model: @model)
+      @showView.bind "comment:_delete", @_delete
 
     renderSubView: (view) ->
       view.setElement(@$el)
@@ -29,3 +30,19 @@ if Backbone?
 
     renderShowView: () ->
       @renderSubView(@showView)
+
+    _delete: (event) =>
+      event.preventDefault()
+      if not @model.can('can_delete')
+        return
+      if not confirm gettext("Are you sure you want to delete this comment?")
+        return
+      url = @model.urlFor('_delete')
+      @model.remove()
+      @$el.remove()
+      $elem = $(event.target)
+      DiscussionUtil.safeAjax
+        $elem: $elem
+        url: url
+        type: "POST"
+        success: (response, textStatus) =>
