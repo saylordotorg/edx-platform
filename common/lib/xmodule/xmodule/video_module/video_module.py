@@ -39,7 +39,10 @@ from .transcripts_utils import (
     generate_srt_from_sjson,
     subs_filename,
     asset_location,
-    asset
+    asset,
+    get_or_create_sjson,
+    TranscriptException,
+    generate_sjson_for_all_speeds,
 )
 from .video_utils import create_youtube_string
 
@@ -47,9 +50,6 @@ from xmodule.modulestore.inheritance import InheritanceKeyValueStore
 from xblock.runtime import KvsFieldData
 
 log = logging.getLogger(__name__)
-
-class TranscriptException(Exception):
-    pass
 
 
 class VideoFields(object):
@@ -293,7 +293,7 @@ class VideoModule(VideoFields, XModule):
         })
 
 
-    def get_transcript(self, lang):
+    def get_transcript(self):
         """
         Returns transcript in *.srt format.
 
@@ -362,42 +362,6 @@ class VideoModule(VideoFields, XModule):
 
         return response
 
-    def generate_sjson_for_all_speeds(self, user_filename, result_subs_dict):
-        """
-        Generates sjson from srt.
-        """
-        try:
-            srt_transcripts = contentstore().find(asset_location(self.location, user_filename))
-        except NotFoundError as e:
-            raise TranscriptException("{}: Can't find uploaded transcripts: {}".format(e.message, user_filename))
-
-        generate_subs_from_source(
-            result_subs_dict,
-            os.path.splitext(user_filename)[1][1:],
-            srt_transcripts.data.decode('utf8'),
-            self,
-            self.transcript_language
-        )
-
-    def get_or_create_sjson(self):
-        """
-        Get sjson if already exists, otherwise generate it.
-
-        Generate sjson with subs_id name, from user uploaded srt.
-        Subs_id is extracted from srt filename, which was set by user.
-
-        Raises:
-            TranscriptException: when srt subtitles do not exist,
-            and exceptions from generate_subs_from_source.
-        """
-        user_subs_id = os.path.splitext(self.transcripts[self.transcript_language])[0]
-        source_subs_id, result_subs_dict = user_subs_id, {1.0: user_subs_id})
-        try:
-            sjson_transcript = asset(self.location, source_subs_id, self.transcript_language).data
-        except (NotFoundError):  # generating sjson from srt
-            self.generate_sjson(user_filename, result_subs_dict)
-        sjson_transcript = asset(self.location, source_subs_id, self.transcript_language).data
-        return sjson_transcript
 
     def translation(self, subs_id):
         """
@@ -431,7 +395,7 @@ class VideoModule(VideoFields, XModule):
             return asset(self.location, subs_id).data
 
         if not self.youtube_id_1_0:  # Non-youtube (HTML5) case:
-            return self.get_or_create_sjson()
+            return get_or_create_sjson(self)
 
         # Youtube case:
         yt_ids = [self.youtube_id_0_75, self.youtube_id_1_0, self.youtube_id_1_25, self.youtube_id_1_5]
@@ -465,7 +429,8 @@ class VideoModule(VideoFields, XModule):
                 sjson_transcript = json.dumps(subs, indent=2)
                 return sjson_transcript
 
-        self.generate_sjson_for_all_speeds(
+        generate_sjson_for_all_speeds(
+            self,
             self.transcripts[self.transcript_language],
             {speed: subs_id for subs_id, speed in youtube_ids.iteritems()}
         )
