@@ -223,7 +223,7 @@ class LocMapperStore(object):
         :param locator: a BlockUsageLocator
         """
         if get_course:
-            cached_value = self._get_course_location_from_cache(locator.package_id)
+            cached_value = self._get_course_location_from_cache(locator.package_id, lower_only)
         else:
             cached_value = self._get_location_from_cache(locator)
         if cached_value:
@@ -462,11 +462,14 @@ class LocMapperStore(object):
         """
         return self.cache.get(unicode(locator))
 
-    def _get_course_location_from_cache(self, locator_package_id):
+    def _get_course_location_from_cache(self, locator_package_id, lower_only=False):
         """
         See if the package_id is in the cache. If so, return the mapped location to the
         course root.
         """
+        if lower_only:
+            return self.cache.get(u'courseIdLower+{}'.format(locator_package_id.lower()))
+
         return self.cache.get(u'courseId+{}'.format(locator_package_id))
 
     def _cache_course_locator(self, old_course_id, published_course_locator, draft_course_locator):
@@ -486,6 +489,7 @@ class LocMapperStore(object):
         setmany = {}
         if location.category == 'course':
             setmany[u'courseId+{}'.format(published_usage.package_id)] = location
+            setmany[u'courseIdLower+{}'.format(published_usage.package_id.lower())] = location
         setmany[unicode(published_usage)] = location
         setmany[unicode(draft_usage)] = location
         setmany[u'{}+{}'.format(old_course_id, location.url())] = (published_usage, draft_usage)
