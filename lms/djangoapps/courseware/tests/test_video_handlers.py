@@ -6,6 +6,7 @@ import os
 import tempfile
 import textwrap
 import json
+from datetime import timedelta
 from webob import Request
 
 from xmodule.contentstore.content import StaticContent
@@ -16,8 +17,7 @@ from .test_video_xml import SOURCE_XML
 from cache_toolbox.core import del_cached_content
 from xmodule.exceptions import NotFoundError
 
-
-def _create_srt_file(content=None, lang='uk'):
+def _create_srt_file(content=None):
     """
     Create srt file in filesystem.
     """
@@ -77,7 +77,7 @@ class TestVideo(BaseTestXmodule):
     DATA = SOURCE_XML
     METADATA = {}
 
-    def test_handle_ajax_dispatch(self):
+    def test_handle_ajax_wrong_dispatch(self):
         responses = {
             user.username: self.clients[user.username].post(
                 self.get_url('whatever'),
@@ -92,6 +92,34 @@ class TestVideo(BaseTestXmodule):
                 for _, response in responses.items()
                 ]).pop(),
             404)
+
+
+    def test_handle_ajax(self):
+
+        data = [
+            {'speed': 2.0},
+            {'saved_video_position': "00:00:10"},
+            {'transcript_language': json.dumps('uk')},
+        ]
+        for sample in data:
+            response = self.clients[self.users[0].username].post(
+                self.get_url('save_user_state'),
+                sample,
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+            self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(self.item_descriptor.speed, None)
+        self.item_descriptor.handle_ajax('save_user_state', {'speed': json.dumps(2.0)})
+        self.assertEqual(self.item_descriptor.speed, 2.0)
+        self.assertEqual(self.item_descriptor.global_speed, 2.0)
+
+        self.assertEqual(self.item_descriptor.saved_video_position, timedelta(0))
+        self.item_descriptor.handle_ajax('save_user_state', {'saved_video_position': "00:00:10"})
+        self.assertEqual(self.item_descriptor.saved_video_position, timedelta(0, 10))
+
+        self.assertEqual(self.item_descriptor.transcript_language, 'en')
+        self.item_descriptor.handle_ajax('save_user_state', {'transcript_language': json.dumps("uk")})
+        self.assertEqual(self.item_descriptor.transcript_language, 'uk')
 
     def tearDown(self):
         _clear_assets(self.item_descriptor.location)

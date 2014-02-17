@@ -213,8 +213,8 @@ class VideoModule(VideoFields, XModule):
 
     def handle_ajax(self, dispatch, data):
         accepted_keys = ['speed', 'saved_video_position', 'transcript_language']
-
         if dispatch == 'save_user_state':
+
             for key in data:
                 if hasattr(self, key) and key in accepted_keys:
                     if key == 'saved_video_position':
@@ -224,6 +224,7 @@ class VideoModule(VideoFields, XModule):
                         setattr(self, key, json.loads(data[key]))
                     if key == 'speed':
                         self.global_speed = self.speed
+
             return json.dumps({'success': True})
 
         log.debug(u"GET {0}".format(data))
