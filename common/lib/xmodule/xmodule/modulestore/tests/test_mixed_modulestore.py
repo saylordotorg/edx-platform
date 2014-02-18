@@ -301,10 +301,10 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
         Test that the xml modulestore only loaded the courses from the maps.
         """
         courses = self.store.modulestores['xml'].get_courses()
-        assert_equals(len(courses), 2)
+        self.assertEqual(len(courses), 2)
         course_ids = [course.location.course_id for course in courses]
-        assert_in(XML_COURSEID1, course_ids)
-        assert_in(XML_COURSEID2, course_ids)
+        self.assertIn(self.XML_COURSEID1, course_ids)
+        self.assertIn(self.XML_COURSEID2, course_ids)
 
     @ddt.data('direct', 'split')
     def test_get_course(self, default_ms):

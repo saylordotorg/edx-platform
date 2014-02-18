@@ -499,7 +499,7 @@ class MixedModuleStore(ModuleStoreWriteBase):
             block_map = {course_location.name: {'course': course.location.block_id}}
             # NOTE: course.location will be a Locator not == course_location
             loc_mapper().create_map_entry(
-                course_location, course_location, course.location.package_id, block_map=block_map
+                course_location, course.location.package_id, block_map=block_map
             )
         else:  # assume mongo
             course = store.create_course(course_location, **kwargs)
@@ -562,9 +562,10 @@ class MixedModuleStore(ModuleStoreWriteBase):
                     course_or_parent_loc, None
                 )
             elif isinstance(course_or_parent_loc, CourseLocator):
-                old_course_id = loc_mapper().translate_locator_to_location(
+                old_course_loc = loc_mapper().translate_locator_to_location(
                     course_or_parent_loc, get_course=True
-                ).course_id
+                )
+                old_course_id = old_course_loc.course_id
             else:  # it's a Location
                 old_course_id = course_id
                 course_or_parent_loc = self._location_to_locator(course_id, course_or_parent_loc)
@@ -610,7 +611,6 @@ class MixedModuleStore(ModuleStoreWriteBase):
         """
         Delete the given item from persistence.
         """
-        import nose.tools; nose.tools.set_trace()
         if self.reference_type == Location:
             course_id = self._infer_course_id_try(location)
             if course_id is None:
