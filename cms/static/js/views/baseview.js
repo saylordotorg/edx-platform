@@ -40,7 +40,7 @@ define(["jquery", "underscore", "backbone", "js/utils/handle_iframe_binding"],
             toggleExpandCollapse: function(event) {
                 var target = $(event.target);
                 event.preventDefault();
-                target.toggleClass('expand').toggleClass('collapse');
+                target.closest('.expand-collapse').toggleClass('expand').toggleClass('collapse');
                 target.closest('.is-collapsible, .window').toggleClass('collapsed');
             }
         });
