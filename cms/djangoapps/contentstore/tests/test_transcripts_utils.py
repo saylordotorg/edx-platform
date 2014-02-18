@@ -189,20 +189,32 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
 
     def test_success_downloading_subs(self):
 
-        # Disabled 11/14/13
-        # This test is flakey because it performs an HTTP request on an external service
-        # Re-enable when `requests.get` is patched using `mock.patch`
-        raise SkipTest
+        response = textwrap.dedent("""<?xml version="1.0" encoding="utf-8" ?>
+                <transcript>
+                    <text start="0" dur="0.27"></text>
+                    <text start="0.27" dur="2.45">Test text 1.</text>
+                    <text start="2.72">Test text 2.</text>
+                    <text start="5.43" dur="1.73">Test text 3.</text>
+                </transcript>
+        """)
+
+        i18n = Mock(ugettext=lambda string: string)
 
         good_youtube_subs = {
-            0.5: 'JMD_ifUUfsU',
-            1.0: 'hI10vDNYz4M',
-            2.0: 'AKqURZnYqpk'
+            0.5: 'good_id_1',
+            1.0: 'good_id_2',
+            2.0: 'good_id_3'
         }
         self.clear_subs_content(good_youtube_subs)
 
-        # Check transcripts_utils.GetTranscriptsFromYouTubeException not thrown
-        transcripts_utils.download_youtube_subs(good_youtube_subs, self.course)
+        with patch('xmodule.video_module.transcripts_utils.requests.get') as mock_get:
+            mock_get.return_value=Mock(status_code=200, text=response, content=response)
+            # Check transcripts_utils.GetTranscriptsFromYouTubeException not thrown
+            transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, i18n)
+
+        mock_get.assert_any_call('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_id_1'})
+        mock_get.assert_any_call('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_id_2'})
+        mock_get.assert_any_call('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_id_3'})
 
         # Check assets status after importing subtitles.
         for subs_id in good_youtube_subs.values():
@@ -227,12 +239,11 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         self.assertEqual(html5_ids[2], 'baz.1.4')
         self.assertEqual(html5_ids[3], 'foo')
 
-    def test_fail_downloading_subs(self):
+    @patch('xmodule.video_module.transcripts_utils.requests.get')
+    def test_fail_downloading_subs(self, mock_get):
 
-        # Disabled 11/14/13
-        # This test is flakey because it performs an HTTP request on an external service
-        # Re-enable when `requests.get` is patched using `mock.patch`
-        raise SkipTest
+        mock_get.return_value=Mock(status_code=404, text='Error 404')
+        i18n = Mock(ugettext=lambda string: string)
 
         bad_youtube_subs = {
             0.5: 'BAD_YOUTUBE_ID1',
@@ -242,7 +253,7 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         self.clear_subs_content(bad_youtube_subs)
 
         with self.assertRaises(transcripts_utils.GetTranscriptsFromYouTubeException):
-            transcripts_utils.download_youtube_subs(bad_youtube_subs, self.course)
+            transcripts_utils.download_youtube_subs(bad_youtube_subs, self.course, settings, i18n)
 
         # Check assets status after importing subtitles.
         for subs_id in bad_youtube_subs.values():
@@ -262,13 +273,15 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         # Re-enable when `requests.get` is patched using `mock.patch`
         raise SkipTest
 
+        i18n = Mock(ugettext=lambda string: string)
+
         good_youtube_subs = {
             1.0: 'j_jEn79vS3g',  # Chinese, utf-8
         }
         self.clear_subs_content(good_youtube_subs)
 
         # Check transcripts_utils.GetTranscriptsFromYouTubeException not thrown
-        transcripts_utils.download_youtube_subs(good_youtube_subs, self.course)
+        transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, i18n)
 
         # Check assets status after importing subtitles.
         for subs_id in good_youtube_subs.values():
