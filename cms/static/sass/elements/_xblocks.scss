@@ -57,6 +57,10 @@
 // UI: xblock is collapsible
 .wrapper-xblock.is-collapsible {
 
+  [class^="icon-"] {
+  font-style: normal;
+  }
+
   .expand-collapse {
     @extend %expand-collapse;
     margin: 0 ($baseline/4);
