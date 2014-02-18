@@ -13,7 +13,7 @@ class Command(BaseCommand):
     Create or modify map entry for each course in 'loc_mapper' with 'lower_id' and 'lower_course_id'
     """
     help = "Create or modify map entry for each course in 'loc_mapper' with 'lower_id' and 'lower_course_id'"
-    
+
     def handle(self, *args, **options):
         # get all courses
         courses = modulestore('direct').get_courses()

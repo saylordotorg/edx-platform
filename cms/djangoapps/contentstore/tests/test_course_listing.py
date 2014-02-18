@@ -2,6 +2,9 @@
 Unit tests for getting the list of courses for a user through iterating all courses and
 by reversing group name formats.
 """
+import random
+import time
+
 from django.contrib.auth.models import Group
 from django.http import HttpRequest
 
@@ -17,6 +20,8 @@ from xmodule.modulestore.tests.factories import CourseFactory
 GROUP_NAME_WITH_DOTS = u'group_name_with_dots'
 GROUP_NAME_WITH_SLASHES = u'group_name_with_slashes'
 GROUP_NAME_WITH_COURSE_NAME_ONLY = u'group_name_with_course_name_only'
+MAX_COURSES = 1000
+MAX_ACCESSIBLE_COURSES = 50
 
 
 class TestCourseListing(ModuleStoreTestCase):
@@ -35,7 +40,7 @@ class TestCourseListing(ModuleStoreTestCase):
         self.client = AjaxEnabledTestClient()
         self.client.login(username=self.user.username, password='test')
 
-    def _create_course_with_access_groups(self, course_location, group_name_format=GROUP_NAME_WITH_DOTS):
+    def _create_course_with_access_groups(self, course_location, group_name_format=GROUP_NAME_WITH_DOTS, user=None):
         """
         Create dummy course with 'CourseFactory' and role (instructor/staff) groups with provided group_name_format
         """
@@ -66,7 +71,8 @@ class TestCourseListing(ModuleStoreTestCase):
                 # Create role (instructor/staff) groups with format: 'instructor_edx.course.run'
                 group, _ = Group.objects.get_or_create(name=groupnames[0])
 
-            self.user.groups.add(group)
+            if user is not None:
+                user.groups.add(group)
         return course
 
     def tearDown(self):
@@ -81,7 +87,7 @@ class TestCourseListing(ModuleStoreTestCase):
         Test getting courses with new access group format e.g. 'instructor_edx.course.run'
         """
         course_location = Location(['i4x', 'Org1', 'Course1', 'course', 'Run1'])
-        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
 
         # get courses through iterating all courses
         courses_list = _accessible_courses_list(self.request)
@@ -100,11 +106,11 @@ class TestCourseListing(ModuleStoreTestCase):
         """
         # create a course with new groups name format e.g. 'instructor_edx.course.run'
         course_location = Location(['i4x', 'Org_1', 'Course_1', 'course', 'Run_1'])
-        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
 
         # create a course with old groups name format e.g. 'instructor_edX/Course/Run'
         old_course_location = Location(['i4x', 'Org_2', 'Course_2', 'course', 'Run_2'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES)
+        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES, self.user)
 
         # get courses through iterating all courses
         courses_list = _accessible_courses_list(self.request)
@@ -112,13 +118,12 @@ class TestCourseListing(ModuleStoreTestCase):
 
         # get courses by reversing groups name
         success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        # self.assertEqual(self.user.groups.all(), 55)
         self.assertTrue(success)
         self.assertEqual(len(courses_list_by_groups), 2)
 
         # create a new course with older group name format (with dots in names) e.g. 'instructor_edX/Course.name/Run.1'
         old_course_location = Location(['i4x', 'Org.Foo.Bar', 'Course.number', 'course', 'Run.name'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES)
+        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES, self.user)
         # get courses through iterating all courses
         courses_list = _accessible_courses_list(self.request)
         self.assertEqual(len(courses_list), 3)
@@ -129,7 +134,7 @@ class TestCourseListing(ModuleStoreTestCase):
 
         # create a new course with older group name format e.g. 'instructor_Run'
         old_course_location = Location(['i4x', 'Org_3', 'Course_3', 'course', 'Run_3'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_COURSE_NAME_ONLY)
+        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_COURSE_NAME_ONLY, self.user)
 
         # get courses through iterating all courses
         courses_list = _accessible_courses_list(self.request)
@@ -140,3 +145,63 @@ class TestCourseListing(ModuleStoreTestCase):
         # check that getting course with this older format of access group fails for this format
         self.assertFalse(success)
         self.assertEqual(courses_list_by_groups, [])
+
+    def test_course_listing_performance(self):
+        """
+        Create large number of courses and give access of some of these courses to the user and
+        compare the time to fetch accessible courses for the user through traversing all courses and
+        reversing django groups
+        """
+        # create and log in a non-staff user
+        self.user = UserFactory()
+        self.request.user = self.user
+        self.client.login(username=self.user.username, password='test')
+
+        # create list of random course numbers which will be accessible to the user
+        user_course_ids = random.sample(range(1, MAX_COURSES + 1), MAX_ACCESSIBLE_COURSES)
+
+        # create courses and assign those to the user which have their number in user_course_ids
+        for number in range(1, MAX_COURSES + 1):
+            org = 'Org{0}'.format(number)
+            course = 'Course{0}'.format(number)
+            run = 'Run{0}'.format(number)
+            course_location = Location(['i4x', org, course, 'course', run])
+            if number in user_course_ids:
+                self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
+            else:
+                self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+
+        # time the get courses by iterating through all courses
+        start_time = time.time()
+        courses_list = _accessible_courses_list(self.request)
+        time_1 = time.time() - start_time
+        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
+        print 'Time taken for getting courses through traversing all courses = {0}'.format(time_1)
+
+        # time again the get courses by iterating through all courses
+        start_time = time.time()
+        courses_list = _accessible_courses_list(self.request)
+        time_2 = time.time() - start_time
+        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
+        print 'Time taken for getting courses through traversing all courses (second time) = {0}'.format(time_2)
+
+        # time the get courses by reversing django groups
+        start_time = time.time()
+        success, courses_list = _accessible_courses_list_from_groups(self.request)
+        time_3 = time.time() - start_time
+        self.assertTrue(success)
+        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
+        print 'Time taken for getting courses through django groups = {0}'.format(time_3)
+
+        # time again the get courses by reversing django groups
+        start_time = time.time()
+        success, courses_list = _accessible_courses_list_from_groups(self.request)
+        time_4 = time.time() - start_time
+        self.assertTrue(success)
+        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
+        print 'Time taken for getting courses through django groups (second time) = {0}'.format(time_4)
+
+        # test that the time taken by getting courses through reversing django groups is lower then the time
+        # taken by traversing through all courses (if accessible courses are relatively small)
+        self.assertTrue(time_1 >= time_3)  # simple fetch time
+        self.assertTrue(time_2 >= time_4)  # cache fetch time
