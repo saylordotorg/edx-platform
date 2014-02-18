@@ -294,7 +294,6 @@ class VideoModule(VideoFields, XModule):
             'transcript_translation_url': self.runtime.handler_url(self, 'transcript').rstrip('/?') + '/translation'
         })
 
-
     def get_transcript(self):
         """
         Returns transcript in *.srt format.
@@ -362,7 +361,6 @@ class VideoModule(VideoFields, XModule):
             response =  Response(status=404)
 
         return response
-
 
     def translation(self, subs_id):
         """

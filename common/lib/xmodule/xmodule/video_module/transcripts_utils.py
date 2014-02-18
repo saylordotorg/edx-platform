@@ -17,8 +17,10 @@ from xmodule.modulestore import Location
 
 log = logging.getLogger(__name__)
 
+
 class TranscriptException(Exception):
     pass
+
 
 class TranscriptsGenerationException(Exception):
     pass
@@ -405,6 +407,7 @@ def youtube_speed_dict(item):
     youtube_ids = {p[0]: p[1] for p in zip(yt_ids, yt_speeds) if p[0]}
     return youtube_ids
 
+
 def subs_filename(subs_id, lang='en'):
     """
     Generate proper filename for storage.
@@ -461,6 +464,7 @@ def generate_sjson_for_all_speeds(item, user_filename, result_subs_dict, lang):
         item,
         lang
     )
+
 
 def get_or_create_sjson(item):
     """
