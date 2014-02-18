@@ -20,8 +20,8 @@ from xmodule.modulestore.tests.factories import CourseFactory
 GROUP_NAME_WITH_DOTS = u'group_name_with_dots'
 GROUP_NAME_WITH_SLASHES = u'group_name_with_slashes'
 GROUP_NAME_WITH_COURSE_NAME_ONLY = u'group_name_with_course_name_only'
-MAX_COURSES = 1000
-MAX_ACCESSIBLE_COURSES = 50
+TOTAL_COURSES_COUNT = 1000
+USER_COURSES_COUNT = 50
 
 
 class TestCourseListing(ModuleStoreTestCase):
@@ -158,10 +158,10 @@ class TestCourseListing(ModuleStoreTestCase):
         self.client.login(username=self.user.username, password='test')
 
         # create list of random course numbers which will be accessible to the user
-        user_course_ids = random.sample(range(1, MAX_COURSES + 1), MAX_ACCESSIBLE_COURSES)
+        user_course_ids = random.sample(range(1, TOTAL_COURSES_COUNT + 1), USER_COURSES_COUNT)
 
         # create courses and assign those to the user which have their number in user_course_ids
-        for number in range(1, MAX_COURSES + 1):
+        for number in range(1, TOTAL_COURSES_COUNT + 1):
             org = 'Org{0}'.format(number)
             course = 'Course{0}'.format(number)
             run = 'Run{0}'.format(number)
@@ -174,34 +174,30 @@ class TestCourseListing(ModuleStoreTestCase):
         # time the get courses by iterating through all courses
         start_time = time.time()
         courses_list = _accessible_courses_list(self.request)
-        time_1 = time.time() - start_time
-        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
-        print 'Time taken for getting courses through traversing all courses = {0}'.format(time_1)
+        iteration_over_courses_time_1 = time.time() - start_time
+        self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time again the get courses by iterating through all courses
         start_time = time.time()
         courses_list = _accessible_courses_list(self.request)
-        time_2 = time.time() - start_time
-        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
-        print 'Time taken for getting courses through traversing all courses (second time) = {0}'.format(time_2)
+        iteration_over_courses_time_2 = time.time() - start_time
+        self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time the get courses by reversing django groups
         start_time = time.time()
         success, courses_list = _accessible_courses_list_from_groups(self.request)
-        time_3 = time.time() - start_time
+        iteration_over_groups_time_1 = time.time() - start_time
         self.assertTrue(success)
-        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
-        print 'Time taken for getting courses through django groups = {0}'.format(time_3)
+        self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time again the get courses by reversing django groups
         start_time = time.time()
         success, courses_list = _accessible_courses_list_from_groups(self.request)
-        time_4 = time.time() - start_time
+        iteration_over_groups_time_2 = time.time() - start_time
         self.assertTrue(success)
-        self.assertEqual(len(courses_list), MAX_ACCESSIBLE_COURSES)
-        print 'Time taken for getting courses through django groups (second time) = {0}'.format(time_4)
+        self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # test that the time taken by getting courses through reversing django groups is lower then the time
         # taken by traversing through all courses (if accessible courses are relatively small)
-        self.assertTrue(time_1 >= time_3)  # simple fetch time
-        self.assertTrue(time_2 >= time_4)  # cache fetch time
+        self.assertGreaterEqual(iteration_over_courses_time_1, iteration_over_groups_time_1)  # simple fetch time
+        self.assertGreaterEqual(iteration_over_courses_time_2, iteration_over_groups_time_2)  # cache fetch time
