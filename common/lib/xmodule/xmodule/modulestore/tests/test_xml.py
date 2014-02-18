@@ -7,7 +7,7 @@ import unittest
 from glob import glob
 from mock import patch
 
-from nose.tools import assert_raises, assert_equals  # pylint: disable=E0611
+from nose.tools import assert_raises, assert_equals, assert_in
 
 from xmodule.course_module import CourseDescriptor
 from xmodule.modulestore.xml import XMLModuleStore
@@ -78,3 +78,23 @@ class TestXMLModuleStore(unittest.TestCase):
         about_module = course_module[about_location]
         self.assertIn("GREEN", about_module.data)
         self.assertNotIn("RED", about_module.data)
+
+    def test_get_courses_for_wiki(self):
+        """
+        Test the get_courses_for_wiki method
+        """
+        store = XMLModuleStore(DATA_DIR, course_dirs=['toy', 'simple'])
+        for course in store.get_courses():
+            courses = store.get_courses_for_wiki(course.wiki_slug)
+            assert_equals(len(courses), 1)
+
+        courses = store.get_courses_for_wiki('no_such_wiki')
+        assert_equals(len(courses), 0)
+
+        # now set two to have same wiki
+        course = store.get_course('edX/toy/2012_Fall')
+        course.wiki_slug = 'simple'
+        courses = store.get_courses_for_wiki('simple')
+        assert_equals(len(courses), 2)
+        for course_id in ['toy', 'simple']:
+            assert_in(Location('i4x', 'edX', course_id, 'course', '2012_Fall'), (course.location for course in courses))
