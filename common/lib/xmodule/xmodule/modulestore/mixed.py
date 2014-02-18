@@ -12,10 +12,11 @@ from xblock.fields import Reference, ReferenceList, String
 
 from . import ModuleStoreWriteBase
 from xmodule.modulestore.django import create_modulestore_instance, loc_mapper
-from xmodule.modulestore import Location
+from xmodule.modulestore import Location, SPLIT_MONGO_MODULESTORE_TYPE
 from xmodule.modulestore.locator import CourseLocator, BlockUsageLocator
 from xmodule.modulestore.exceptions import InsufficientSpecificationError, ItemNotFoundError
 from xmodule.modulestore.parsers import ALLOWED_ID_CHARS
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ class MixedModuleStore(ModuleStoreWriteBase):
                 store.get('DOC_STORE_CONFIG', {}),
                 store['OPTIONS']
             )
+            # it would be better to have a notion of read-only rather than hardcode
+            # key name
+            if is_xml:
+                self.ensure_loc_maps_exist(key)
 
     def _get_modulestore_for_courseid(self, course_id):
         """
@@ -99,7 +104,7 @@ class MixedModuleStore(ModuleStoreWriteBase):
         stringify = isinstance(reference, basestring)
         if stringify:
             reference = Location(reference)
-        locator = loc_mapper().translate_location(course_id, reference, reference.revision == 'draft', True)
+        locator = loc_mapper().translate_location(course_id, reference, reference.revision == None, True)
         return unicode(locator) if stringify else locator
 
     def _incoming_reference_adaptor(self, store, course_id, reference):
@@ -206,6 +211,21 @@ class MixedModuleStore(ModuleStoreWriteBase):
             field.write_to(xblock, value)
         return converter
 
+    def ensure_loc_maps_exist(self, store_name):
+        """
+        Ensure location maps exist for every course in the modulestore whose
+        name is the given name (mostly used for 'xml'). It creates maps for any
+        missing ones.
+
+        NOTE: will only work if the given store is Location based. If it's not,
+        it raises NotImplementedError
+        """
+        store = self.modulestores[store_name]
+        if store.reference_type != Location:
+            raise NotImplementedError(u"Cannot create maps from %s", store.reference_type)
+        for course in store.get_courses():
+            loc_mapper().translate_location(course.location.course_id, course.location)
+
     def has_item(self, course_id, reference):
         """
         Does the course include the xblock who's id is reference?
@@ -267,14 +287,14 @@ class MixedModuleStore(ModuleStoreWriteBase):
                 try:
                     location.ensure_fully_specified()
                     location = loc_mapper().translate_location(
-                        course_id, location, location.revision == 'published', True
+                        course_id, location, location.revision == None, True
                     )
                 except InsufficientSpecificationError:
                     # construct the Locator by hand
                     if location.category is not None and qualifiers.get('category', False):
                         qualifiers['category'] = location.category
                     location = loc_mapper().translate_location_to_course_locator(
-                        course_id, location, location.revision == 'published'
+                        course_id, location, location.revision == None
                     )
         xblocks = store.get_items(location, course_id, depth, qualifiers)
         xblocks = [self._outgoing_xblock_adaptor(store, course_id, xblock) for xblock in xblocks]
@@ -306,14 +326,14 @@ class MixedModuleStore(ModuleStoreWriteBase):
                     # make sure that the courseId is mapped to the store in question
                     if key == self.mappings.get(course_id, 'default'):
                         courses.append(
-                            self._outgoing_reference_adaptor(store, course_id, course)
+                            self._outgoing_reference_adaptor(store, course_id, course.location)
                         )
             else:
                 # if we're the 'default' store provider, then we surface all courses hosted in
                 # that store provider
                 store_courses = [
                     self._outgoing_reference_adaptor(
-                        store, self._get_course_id_from_course_location(course.location), course
+                        store, self._get_course_id_from_course_location(course.location), course.location
                     )
                     for course in store_courses
                 ]
@@ -426,7 +446,8 @@ class MixedModuleStore(ModuleStoreWriteBase):
         # try finding in loc_mapper
         try:
             locator = loc_mapper().translate_location_to_course_locator(None, location)
-            return loc_mapper().translate_locator_to_location(locator, get_course=True)
+            location = loc_mapper().translate_locator_to_location(locator, get_course=True)
+            return location.course_id
         except ItemNotFoundError:
             pass
         # expensive query against all location-based modulestores to look for location.
@@ -448,6 +469,120 @@ class MixedModuleStore(ModuleStoreWriteBase):
         # if we get here, it must be in a Locator based store, but we won't be able to find
         # it.
         return None
+
+    def create_course(self, course_location, user_id=None, store_name='default', **kwargs):
+        """
+        Creates and returns the course. It creates a loc map from the course_location to
+        the new one (if provided as id_root).
+
+        NOTE: course_location must be a Location not
+        a Locator until we no longer need to do loc mapping.
+
+        NOTE: unlike the other mixed modulestore methods, this does not adapt its argument
+        to the persistence store but requires its caller to know what the persistence store
+        wants for args. It does not translate any references on the way in; so, don't
+        pass children or other reference fields here.
+        It does, however, adapt the xblock on the way out to the app's
+        reference_type
+
+        :returns: course xblock
+        """
+        store = self.modulestores[store_name]
+        if not hasattr(store, 'create_course'):
+            raise NotImplementedError(u"Cannot create a course on store %s", store_name)
+        if store.get_modulestore_type(course_location.course_id) == SPLIT_MONGO_MODULESTORE_TYPE:
+            org = kwargs.pop('org', course_location.org)
+            pretty_id = kwargs.pop('pretty_id', None)
+            # TODO rename id_root to package_id for consistency. It's too confusing
+            id_root = kwargs.pop('id_root', u"{0.org}.{0.course}.{0.name}".format(course_location))
+            course = store.create_course(org, pretty_id, user_id, id_root=id_root, **kwargs)
+            block_map = {course_location.name: {'course': course.location.block_id}}
+            # NOTE: course.location will be a Locator not == course_location
+            loc_mapper().create_map_entry(
+                course_location, course_location, course.location.package_id, block_map=block_map
+            )
+        else:  # assume mongo
+            course = store.create_course(course_location, **kwargs)
+            loc_mapper().translate_location(course_location.course_id, course_location)
+
+        return self._outgoing_xblock_adaptor(store, course_location.course_id, course)
+
+    def create_item(self, course_or_parent_loc, category, user_id=None, **kwargs):
+        """
+        Create and return the item. If parent_loc is a specific location v a course id,
+        it installs the new item as a child of the parent (if the parent_loc is a specific
+        xblock reference).
+
+        Adds an entry to the loc map using the kwarg location if provided (must be a
+        Location if provided) or block_id and category if provided.
+
+        :param course_or_parent_loc: will be translated appropriately to the course's store.
+        Can be a course_id (org/course/run), CourseLocator, Location, or BlockUsageLocator.
+        """
+        # find the store for the course
+        if self.reference_type == Location:
+            if hasattr(course_or_parent_loc, 'tag'):
+                course_id = self._infer_course_id_try(course_or_parent_loc)
+            else:
+                course_id = course_or_parent_loc
+        else:
+            course_id = course_or_parent_loc.package_id
+        store = self._get_modulestore_for_courseid(course_id)
+
+        location = kwargs.pop('location', None)
+        # invoke its create_item
+        if store.reference_type == Location:
+            # convert parent loc if it's legit
+            block_id = kwargs.pop('block_id', uuid4().hex)
+            if isinstance(course_or_parent_loc, basestring):
+                parent_loc = None
+                if location is None:
+                    locn_dict = Location.parse_course_id(course_id)
+                    locn_dict['category'] = category
+                    locn_dict['name'] = block_id
+                    location = Location(locn_dict)
+            else:
+                parent_loc = self._incoming_reference_adaptor(store, course_id, course_or_parent_loc)
+                # must have a legitimate location, compute if appropriate
+                if location is None:
+                    location = parent_loc.replace(category=category, name=block_id)
+            # do the actual creation
+            xblock = store.create_and_save_xmodule(location, **kwargs)
+            # add the loc mapping
+            loc_mapper().translate_location(course_id, location)
+            # don't forget to attach to parent
+            if parent_loc is not None and not 'detached' in xblock._class_tags:
+                parent = store.get_item(parent_loc)
+                parent.children.append(location.url())
+                store.update_item(parent)
+        else:
+            if isinstance(course_or_parent_loc, basestring): # course_id
+                old_course_id = course_or_parent_loc
+                course_or_parent_loc = loc_mapper().translate_location_to_course_locator(
+                    course_or_parent_loc, None
+                )
+            elif isinstance(course_or_parent_loc, CourseLocator):
+                old_course_id = loc_mapper().translate_locator_to_location(
+                    course_or_parent_loc, get_course=True
+                ).course_id
+            else:  # it's a Location
+                old_course_id = course_id
+                course_or_parent_loc = self._location_to_locator(course_id, course_or_parent_loc)
+            fields = kwargs.get('fields', {})
+            fields.update(kwargs.pop('metadata', {}))
+            fields.update(kwargs.pop('definition_data', {}))
+            kwargs['fields'] = fields
+            xblock = store.create_item(course_or_parent_loc, category, user_id, **kwargs)
+            if location is None:
+                locn_dict = Location.parse_course_id(old_course_id)
+                locn_dict['category'] = category
+                locn_dict['name'] = xblock.location.block_id
+                location = Location(locn_dict)
+            # map location.name to xblock.location.block_id
+            loc_mapper().translate_location(
+                old_course_id, location, passed_block_id=xblock.location.block_id
+            )
+        return xblock
 
     def update_item(self, xblock, user_id, allow_not_found=False):
         """
@@ -471,10 +606,11 @@ class MixedModuleStore(ModuleStoreWriteBase):
 
         return self._outgoing_xblock_adaptor(store, course_id, xblock)
 
-    def delete_item(self, location, **kwargs):
+    def delete_item(self, location, user_id=None):
         """
         Delete the given item from persistence.
         """
+        import nose.tools; nose.tools.set_trace()
         if self.reference_type == Location:
             course_id = self._infer_course_id_try(location)
             if course_id is None:
@@ -484,7 +620,7 @@ class MixedModuleStore(ModuleStoreWriteBase):
         store = self._get_modulestore_for_courseid(course_id)
 
         decoded_ref = self._incoming_reference_adaptor(store, course_id, location)
-        return store.delete_item(decoded_ref, **kwargs)
+        return store.delete_item(decoded_ref, user_id=user_id)
 
     def close_all_connections(self):
         """

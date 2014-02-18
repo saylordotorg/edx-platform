@@ -2,8 +2,7 @@ from factory import Factory, lazy_attribute_sequence, lazy_attribute
 from factory.containers import CyclicDefinitionError
 from uuid import uuid4
 
-from xmodule.modulestore import Location
-from xmodule.x_module import prefer_xmodules
+from xmodule.modulestore import Location, prefer_xmodules
 from xblock.core import XBlock
 
 

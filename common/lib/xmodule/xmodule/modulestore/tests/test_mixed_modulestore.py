@@ -9,8 +9,7 @@ from xmodule.modulestore import Location, MONGO_MODULESTORE_TYPE, SPLIT_MONGO_MO
     XML_MODULESTORE_TYPE
 from xmodule.modulestore.exceptions import ItemNotFoundError
 
-from xmodule.modulestore.locator import CourseLocator, BlockUsageLocator
-from xmodule.modulestore.tests import persistent_factories, factories
+from xmodule.modulestore.locator import BlockUsageLocator
 from xmodule.modulestore.tests.test_location_mapper import LocMapperSetupSansDjango, loc_mapper
 
 # FIXME remove settings
@@ -110,39 +109,37 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
         self.addCleanup(patcher.stop)
         self.addTypeEqualityFunc(BlockUsageLocator, '_compareIgnoreVersion')
 
-    def _create_course(self, default, course_location, item_location, org='MITx'):
+    def _create_course(self, default, course_location, item_location):
         """
-        Create the course in the persistence store using the given course & item location
+        Create a course w/ one item in the persistence store using the given course & item location.
+        NOTE: course_location and item_location must be Location regardless of the app reference type in order
+        to cause the right mapping to be created.
         """
         if default == 'split':
-            if not isinstance(course_location, CourseLocator):
-                item_location = loc_mapper().translate_location(course_location.course_id, item_location)
-                course_location = loc_mapper().translate_location(course_location.course_id, course_location)
-            course = persistent_factories.PersistentCourseFactory.create(
-                org=org, id_root=course_location.package_id, root_block_id=course_location.block_id,
-                modulestore=self.store.modulestores['default'], master_branch='published',
+            course = self.store.create_course(course_location, store_name=default)
+            chapter = self.store.create_item(
+                # don't use course_location as it may not be the repr
+                course.location, item_location.category, location=item_location, block_id=item_location.name
             )
-            chapter = persistent_factories.ItemFactory.create(
-                parent_location=course_location, category='chapter', block_id=item_location.block_id,
-                modulestore=self.store.modulestores['default']
-            )
-            self.assertEqual(chapter.location, item_location)
         else:
-            if not isinstance(course_location, Location):
-                item_location = loc_mapper().translate_locator_to_location(item_location)
-                course_location = loc_mapper().translate_locator_to_location(course_location)
-            course = factories.CourseFactory.create(
-                org=course_location.org, course=course_location.course, display_name=course_location.name,
-                modulestore=self.store.modulestores['default']
+            course = self.store.create_course(
+                course_location, store_name=default, metadata={'display_name': course_location.name}
             )
-            chapter = factories.ItemFactory.create(
-                parent_location=course_location,
-                category='chapter',
-                location=item_location,
-                modulestore=self.store.modulestores['default']
+            chapter = self.store.create_item(course_location, item_location.category, location=item_location)
+        if self.REFERENCE_TYPE == 'xmodule.modulestore.locator.CourseLocator':
+            # add_entry is false b/c this is a test that the right thing happened w/o
+            # wanting any additional side effects
+            lookup_map = loc_mapper().translate_location(
+                course_location.course_id, course_location, add_entry_if_missing=False
             )
-        self.assertEqual(course.location, course_location)
-        self.assertEqual(chapter.location, item_location)
+            self.assertEqual(lookup_map, course.location)
+            lookup_map = loc_mapper().translate_location(
+                course_location.course_id, item_location, add_entry_if_missing=False
+            )
+            self.assertEqual(lookup_map, chapter.location)
+        else:
+            self.assertEqual(course.location, course_location)
+            self.assertEqual(chapter.location, item_location)
 
     def initdb(self, default):
         """
@@ -171,6 +168,8 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
         self.xml_chapter_location = self.course_locations[self.XML_COURSEID1].replace(
             category='chapter', name='Overview'
         )
+        # grab old style location b4 possibly converted
+        import_location = self.course_locations[self.IMPORT_COURSEID]
         # get Locators and set up the loc mapper if app is Locator based
         if self.REFERENCE_TYPE == 'xmodule.modulestore.locator.CourseLocator':
             self.fake_location = loc_mapper().translate_location('foo/bar/2012_Fall', self.fake_location)
@@ -185,15 +184,14 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
                 for course_id, locn in self.course_locations.iteritems()
             }
 
-        self._create_course(default, self.course_locations[self.IMPORT_COURSEID], self.import_chapter_location)
-        return self.store
+        self._create_course(default, import_location, self.import_chapter_location)
 
     @ddt.data('direct', 'split')
     def test_get_modulestore_type(self, default_ms):
         """
         Make sure we get back the store type we expect for given mappings
         """
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         self.assertEqual(self.store.get_modulestore_type(self.XML_COURSEID1), XML_MODULESTORE_TYPE)
         self.assertEqual(self.store.get_modulestore_type(self.XML_COURSEID2), XML_MODULESTORE_TYPE)
         mongo_ms_type = MONGO_MODULESTORE_TYPE if default_ms == 'direct' else SPLIT_MONGO_MODULESTORE_TYPE
@@ -203,7 +201,7 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
 
     @ddt.data('direct', 'split')
     def test_has_item(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         for course_id, course_locn in self.course_locations.iteritems():
             self.assertTrue(self.store.has_item(course_id, course_locn))
 
@@ -213,13 +211,13 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
 
     @ddt.data('direct', 'split')
     def test_get_item(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         with self.assertRaises(NotImplementedError):
             self.store.get_item(self.fake_location)
 
     @ddt.data('direct', 'split')
     def test_get_instance(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         for course_id, course_locn in self.course_locations.iteritems():
             self.assertIsNotNone(self.store.get_instance(course_id, course_locn))
 
@@ -231,7 +229,7 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
 
     @ddt.data('direct', 'split')
     def test_get_items(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         for course_id, course_locn in self.course_locations.iteritems():
             if hasattr(course_locn, 'as_course_locator'):
                 locn = course_locn.as_course_locator()
@@ -247,7 +245,7 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
         """
         Update should fail for r/o dbs and succeed for r/w ones
         """
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         # try a r/o db
         if self.REFERENCE_TYPE == 'xmodule.modulestore.locator.CourseLocator':
             course_id = self.course_locations[self.XML_COURSEID1]
@@ -278,19 +276,18 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
         """
         Delete should reject on r/o db and work on r/w one
         """
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         # r/o try deleting the course
         with self.assertRaises(NotImplementedError):
-            self.store.delete_item(self.course_locations[self.XML_COURSEID1])
-        # try deleting the r/w course xblock (a bad pattern, but ok for this test)
-        self.store.delete_item(self.course_locations[self.IMPORT_COURSEID])
+            self.store.delete_item(self.xml_chapter_location)
+        self.store.delete_item(self.import_chapter_location, '**replace_user**')
         # verify it's gone
         with self.assertRaises(ItemNotFoundError):
-            self.store.get_instance(self.IMPORT_COURSEID, self.course_locations[self.IMPORT_COURSEID])
+            self.store.get_instance(self.IMPORT_COURSEID, self.import_chapter_location)
 
     @ddt.data('direct', 'split')
     def test_get_courses(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         # we should have 3 total courses aggregated
         courses = self.store.get_courses()
         self.assertEqual(len(courses), 3)
@@ -301,7 +298,7 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
 
     @ddt.data('direct', 'split')
     def test_get_course(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         for course_locn in self.course_locations.itervalues():
             if hasattr(course_locn, 'as_course_locator'):
                 locn = course_locn.as_course_locator()
@@ -315,7 +312,7 @@ class TestMixedModuleStore(LocMapperSetupSansDjango):
     # pylint: disable=E1101
     @ddt.data('direct', 'split')
     def test_get_parent_locations(self, default_ms):
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         parents = self.store.get_parent_locations(
             self.import_chapter_location,
             self.IMPORT_COURSEID
@@ -358,5 +355,5 @@ class TestMixedMSInit(TestMixedModuleStore):
         """
         Test that use_locations defaulted correctly
         """
-        self.store = self.initdb(default_ms)
+        self.initdb(default_ms)
         self.assertEqual(self.store.reference_type, Location)

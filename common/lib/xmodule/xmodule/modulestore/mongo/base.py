@@ -615,7 +615,14 @@ class MongoModuleStore(ModuleStoreWriteBase):
         modules = self._load_items(list(items), depth)
         return modules
 
-    def create_xmodule(self, location, definition_data=None, metadata=None, system=None):
+    def create_course(self, location, definition_data=None, metadata=None, runtime=None):
+        """
+        Create a course with the given location. The location category must be 'course'.
+        """
+        return self.create_and_save_xmodule(location, definition_data, metadata, runtime)
+
+    def create_xmodule(self, location, definition_data=None, metadata=None, system=None,
+                       fields={}):
         """
         Create the new xmodule but don't save it. Returns the new module.
 
@@ -657,11 +664,14 @@ class MongoModuleStore(ModuleStoreWriteBase):
             ScopeIds(None, location.category, location, location),
             dbmodel,
         )
+        for key, value in fields.iteritems():
+            xmodule[key] = value
         # decache any pending field settings from init
         xmodule.save()
         return xmodule
 
-    def create_and_save_xmodule(self, location, definition_data=None, metadata=None, system=None):
+    def create_and_save_xmodule(self, location, definition_data=None, metadata=None, system=None,
+                                fields={}):
         """
         Create the new xmodule and save it. Does not return the new module because if the caller
         will insert it as a child, it's inherited metadata will completely change. The difference
@@ -675,7 +685,7 @@ class MongoModuleStore(ModuleStoreWriteBase):
         """
         # differs from split mongo in that I believe most of this logic should be above the persistence
         # layer but added it here to enable quick conversion. I'll need to reconcile these.
-        new_object = self.create_xmodule(location, definition_data, metadata, system)
+        new_object = self.create_xmodule(location, definition_data, metadata, system, fields)
         location = new_object.location
         self.update_item(new_object, allow_not_found=True)
 
@@ -692,9 +702,9 @@ class MongoModuleStore(ModuleStoreWriteBase):
                 'url_slug': new_object.location.name
             })
             course.tabs = existing_tabs
-            # Save any changes to the course to the MongoKeyValueStore
-            course.save()
             self.update_item(course)
+
+        return new_object
 
     def fire_updated_modulestore_signal(self, course_id, location):
         """
