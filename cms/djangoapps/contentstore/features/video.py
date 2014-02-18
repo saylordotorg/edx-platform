@@ -56,6 +56,13 @@ def i_created_a_video_with_subs_with_name(_step, sub_id):
     world.visit(video_url)
 
     world.wait_for_xmodule()
+
+    # update .sub filed with proper subs name (which mimics real Studio/XML behavior)
+    # this is needed only for that videos which are created in acceptance tests.
+    _.step.given('I edit component')
+    world.wait_for_ajax_complete()
+    _.step.given('I save changes')
+
     world.disable_jquery_animations()
 
     world.wait_for_present('.is-initialized')
