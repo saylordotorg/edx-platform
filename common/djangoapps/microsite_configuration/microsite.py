@@ -11,8 +11,8 @@ import os.path
 
 from django.conf import settings
 
-_microsite_configuration_threadlocal = threading.local()
-_microsite_configuration_threadlocal.data = {}
+microsite_configuration = threading.local()
+microsite_configuration.data = {}
 
 
 def has_configuration_set():
@@ -26,10 +26,10 @@ def get_configuration():
     """
     Returns the current request's microsite configuration
     """
-    if not hasattr(_microsite_configuration_threadlocal, 'data'):
+    if not hasattr(microsite_configuration, 'data'):
         return {}
 
-    return _microsite_configuration_threadlocal.data
+    return microsite_configuration.data
 
 
 def is_request_in_microsite():
@@ -108,7 +108,7 @@ def clear():
     """
     Clears out any microsite configuration from the current request/thread
     """
-    _microsite_configuration_threadlocal.data = {}
+    microsite_configuration.data = {}
 
 
 def _set_current_microsite(microsite_config_key, subdomain, domain):
@@ -118,7 +118,7 @@ def _set_current_microsite(microsite_config_key, subdomain, domain):
     config = settings.MICROSITE_CONFIGURATION[microsite_config_key].copy()
     config['subdomain'] = subdomain
     config['site_domain'] = domain
-    _microsite_configuration_threadlocal.data = config
+    microsite_configuration.data = config
 
 
 def set_by_domain(domain):
