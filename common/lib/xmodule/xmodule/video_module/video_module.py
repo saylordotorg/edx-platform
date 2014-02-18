@@ -12,7 +12,6 @@ in XML.
 
 import json
 import logging
-import os
 
 from lxml import etree
 from pkg_resources import resource_string
@@ -27,18 +26,12 @@ from xmodule.x_module import XModule, module_attr
 from xmodule.editing_module import TabsEditingDescriptor
 from xmodule.raw_module import EmptyDataRawDescriptor
 from xmodule.xml_module import is_pointer_tag, name_to_pathname, deserialize_field
-from xmodule.contentstore.django import contentstore
 from xmodule.exceptions import NotFoundError
 from xblock.core import XBlock
 from xblock.fields import Scope, String, Float, Boolean, List, Dict, ScopeIds
 from xmodule.fields import RelativeTime
 from .transcripts_utils import (
-    generate_subs_from_source,
-    save_subs_to_store,
-    generate_subs,
     generate_srt_from_sjson,
-    subs_filename,
-    asset_location,
     asset,
     get_or_create_sjson,
     TranscriptException,
