@@ -47,7 +47,7 @@ from django_comment_common.utils import seed_permissions_roles
 from student.models import CourseEnrollment
 
 from xmodule.html_module import AboutDescriptor
-from xmodule.modulestore.locator import BlockUsageLocator
+from xmodule.modulestore.locator import BlockUsageLocator, CourseLocator
 from course_creators.views import get_course_creator_status, add_user_with_status_unrequested
 from contentstore import utils
 from student.roles import CourseInstructorRole, CourseStaffRole, CourseCreatorRole
@@ -402,7 +402,15 @@ def course_info_update_handler(request, tag=None, package_id=None, branch=None, 
     """
     if 'application/json' not in request.META.get('HTTP_ACCEPT', 'application/json'):
         return HttpResponseBadRequest("Only supports json requests")
-    updates_locator = BlockUsageLocator(package_id=package_id, branch=branch, version_guid=version_guid, block_id=block)
+
+    course_location = loc_mapper().translate_locator_to_location(
+        CourseLocator(package_id=package_id), get_course=True
+    )
+    # add location to loc_mapper
+    updates_locator = loc_mapper().translate_location(
+        course_location.course_id, course_location.replace(category='course_info', name='updates'),
+        False, True
+    )
     updates_location = loc_mapper().translate_locator_to_location(updates_locator)
     if provided_id == '':
         provided_id = None
