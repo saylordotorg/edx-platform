@@ -394,13 +394,37 @@ class @CombinedOpenEnded
       @submit_button.attr('disabled', false)
       @gentle_alert response.error
 
+  confirm_modal: (message, callback) =>
+    modal = $('#confirm-dialog')
+    if not modal.length
+      $('body').append('<div style="display:none" id="confirm-dialog" role="alert" aria-hidden="false" aria-atomic="true" aria-live="assertive"><div class="confirm-message"></div></div>')
+      modal = $('#confirm-dialog')
+    modal.find('.confirm-message').html(message)
+    ok = gettext('Ok')
+    cancel = gettext('Cancel')
+    # window.SR.readText(message)
+    modal.dialog
+        resizable: false
+        height: 300
+        width: 400
+        title: gettext('Confirmation')
+        draggable: false
+        buttons:
+          ok: ->
+            $(this).dialog 'close'
+            callback()
+          cancel: ->
+            $(this).dialog 'close'
+            # window.SR.readText(cancel)
+
   confirm_save_answer: (event) =>
     ###
     Translators: This string appears in a confirmation box after one tries to submit
     an openended problem
     ###
     confirmation_text = gettext 'Please confirm that you wish to submit your work. You will not be able to make any changes after submitting.' 
-    @save_answer(event) if confirm(confirmation_text)
+    @confirm_modal confirmation_text, =>
+      @save_answer(event)
 
   save_answer: (event) =>
     @$el.find(@oe_alert_sel).remove()
@@ -507,7 +531,9 @@ class @CombinedOpenEnded
       @errors_area.html(@out_of_sync_message)
 
   confirm_reset: (event) =>
-    @reset(event) if confirm(gettext 'Are you sure you want to remove your previous response to this question?')
+    message = gettext 'Are you sure you want to remove your previous response to this question?'
+    @confirm_modal message, =>
+      @reset(event)
 
   reset: (event) =>
     event.preventDefault()
