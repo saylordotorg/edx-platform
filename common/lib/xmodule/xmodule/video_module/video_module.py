@@ -313,6 +313,11 @@ class VideoModule(VideoFields, XModule):
 
         Request GET should contains 2-char language code for `download`
         and additionally `videoId` for `translation`.
+
+        Dispatches:
+        `download`: returns SRT file.
+        `translation`: returns jsoned translation text.
+        `available_translation`: returns list of languages, for which SRT files exist. For 'en' check if SJSON exists.
         """
         if ('language' not in request.GET or
             'videoId' not in request.GET and dispatch == 'translation'):
@@ -349,6 +354,21 @@ class VideoModule(VideoFields, XModule):
             else:
                 response = Response(transcript)
                 response.content_type = 'application/json'
+        elif dispatch == 'available_translations':
+            available_translations, langs= [], {}
+            if self.sub:
+                langs['en'] = self.sub
+            for lang,  SRT_filename in self.transcripts.items():
+                 langs[lang] = os.path.splitext(SRT_filename)[0]
+            for lang, subs_id in langs.items():
+                try:
+                    asset(self.location, subs_id, lang)
+                except NotFoundError:
+                    pass
+                else:
+                    available_translations.append(lang)
+            response = Response(json.dumps(available_translations))
+            response.content_type = 'application/json'
         else:  # unknown dispatch
             log.debug("Dispatch is not allowed")
             response =  Response(status=404)
