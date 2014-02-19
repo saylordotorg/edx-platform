@@ -20,8 +20,7 @@ from mock import Mock
 from . import LogicTest
 from lxml import etree
 from xmodule.modulestore import Location
-from xmodule.video_module import VideoDescriptor
-from xmodule.video_module.video_utils import create_youtube_string
+from xmodule.video_module import VideoDescriptor, create_youtube_string
 from .test_import import DummySystem
 from xblock.field_data import DictFieldData
 from xblock.fields import ScopeIds
