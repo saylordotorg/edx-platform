@@ -273,7 +273,7 @@ def _save_item(request, usage_loc, item_location, data=None, children=None, meta
                     field.write_to(existing_item, value)
 
         if existing_item.category == 'video':
-            manage_video_subtitles_save(old_metadata, own_metadata(existing_item), existing_item, request.user)
+            manage_video_subtitles_save(existing_item, request.user, old_metadata, generate_translation=True)
 
     # commit to datastore
     store.update_item(existing_item, request.user.id)

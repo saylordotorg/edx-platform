@@ -523,7 +523,7 @@ def save_transcripts(request):
         save_module(item, request.user)  # item becomes updated with new values
 
         if new_sub:
-            manage_video_subtitles_save({}, {}, item, request.user)
+            manage_video_subtitles_save(item, request.user)
         else:
             # If `new_sub` is empty, it means that user explicitly does not want to use
             # transcripts for current video ids and we remove all transcripts from storage.

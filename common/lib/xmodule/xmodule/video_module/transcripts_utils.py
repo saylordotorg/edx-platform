@@ -329,7 +329,7 @@ def get_html5_ids(html5_sources):
     return html5_ids
 
 
-def manage_video_subtitles_save(old_metadata, item, user):
+def manage_video_subtitles_save(item, user, old_metadata=None, generate_translation=False):
     """
     Does some specific things, that can be done only on save.
 
@@ -350,15 +350,12 @@ def manage_video_subtitles_save(old_metadata, item, user):
     This whole action ensures that after user changes video fields, proper `sub` files, corresponding
     to new values of video fields, will be presented in system.
 
-    # 2.
+    # 2. Generate transcripts translation only  when user clicks `save` button, not while switching tabs.
     a) delete sjson translation for those languages, which were removed from `item.transcripts`.
         Note: we are not deleting old SRT files to give user more flexibility.
-    b) For all SRT files in`item.transcripts` regenerate new sjsons.
+    b) For all SRT files in`item.transcripts` regenerate new SJSON files.
         (To avoid confusing situation if you attempt to correct a translation by uploading
-        a new version of the srt file with same name).
-
-
-
+        a new version of the SRT file with same name).
     """
 
     # 1.
@@ -384,20 +381,22 @@ def manage_video_subtitles_save(old_metadata, item, user):
             )
 
         # 2.
-        old_langs, new_langs = set(old_metadata.get('transcripts', {})), set(item.transcripts)
+        if generate_translation:
+            old_langs, new_langs = set(old_metadata.get('transcripts', {})) if old_metadata else set()
+            new_langs = set(item.transcripts)
 
-        for lang in old_langs.difference(new_langs): # 2a
-                for video_id in possible_video_id_list:
-                    if video_id:
-                        remove_subs_from_store(video_id, item, lang)
+            for lang in old_langs.difference(new_langs): # 2a
+                    for video_id in possible_video_id_list:
+                        if video_id:
+                            remove_subs_from_store(video_id, item, lang)
 
-        for lang in new_langs:  # 2b
-            generate_sjson_for_all_speeds(
-                item,
-                item.transcripts[lang],
-                {speed: subs_id for subs_id, speed in youtube_speed_dict(item).iteritems()},
-                lang,
-                )
+            for lang in new_langs:  # 2b
+                generate_sjson_for_all_speeds(
+                    item,
+                    item.transcripts[lang],
+                    {speed: subs_id for subs_id, speed in youtube_speed_dict(item).iteritems()},
+                    lang,
+                    )
 
 
 def youtube_speed_dict(item):
