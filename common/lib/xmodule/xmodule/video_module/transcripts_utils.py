@@ -329,7 +329,7 @@ def get_html5_ids(html5_sources):
     return html5_ids
 
 
-def manage_video_subtitles_save(old_metadata, new_metadata, item, user):
+def manage_video_subtitles_save(old_metadata, item, user):
     """
     Does some specific things, that can be done only on save.
 
@@ -340,7 +340,7 @@ def manage_video_subtitles_save(old_metadata, new_metadata, item, user):
     `item` is video module instance with updated values of fields,
     but actually have not been saved to store yet.
 
-    `old_metadata` and `new_metadata` are values of XFields before and at the moment, respectively.
+    `old_metadata` contains old values of XFields.
 
     # 1.
     If value of `sub` field of `new_item` is different from values of video fields of `new_item`,
@@ -351,10 +351,13 @@ def manage_video_subtitles_save(old_metadata, new_metadata, item, user):
     to new values of video fields, will be presented in system.
 
     # 2.
-    If some of SRT file names are updated, we need to
-        a) regenerate sjson subtitles for all video ids from new SRTs
-        b) delete sjson translation for those languages, which were removed from transcripts.
-    Note: we are not deleting old SRT files to give user more flexibility.
+    a) delete sjson translation for those languages, which were removed from `item.transcripts`.
+        Note: we are not deleting old SRT files to give user more flexibility.
+    b) For all SRT files in`item.transcripts` regenerate new sjsons.
+        (To avoid confusing situation if you attempt to correct a translation by uploading
+        a new version of the srt file with same name).
+
+
 
     """
 
@@ -381,21 +384,20 @@ def manage_video_subtitles_save(old_metadata, new_metadata, item, user):
             )
 
         # 2.
-        old_langs, new_langs = set(old_metadata.get('transcripts', [])), set(new_metadata.get('transcripts', []))
+        old_langs, new_langs = set(old_metadata.get('transcripts', {})), set(item.transcripts)
 
-        for lang in old_langs.difference(new_langs): # 2b
+        for lang in old_langs.difference(new_langs): # 2a
                 for video_id in possible_video_id_list:
                     if video_id:
                         remove_subs_from_store(video_id, item, lang)
 
-        for lang in new_langs.intersection(old_langs): # 2a
-            if old_metadata['transcripts'][lang] != new_metadata['transcripts'][lang]:
-                generate_sjson_for_all_speeds(
-                    item,
-                    item.transcripts[lang],
-                    {speed: subs_id for subs_id, speed in  youtube_speed_dict(item).iteritems()},
-                    lang,
-                    )
+        for lang in new_langs:  # 2b
+            generate_sjson_for_all_speeds(
+                item,
+                item.transcripts[lang],
+                {speed: subs_id for subs_id, speed in youtube_speed_dict(item).iteritems()},
+                lang,
+                )
 
 
 def youtube_speed_dict(item):
