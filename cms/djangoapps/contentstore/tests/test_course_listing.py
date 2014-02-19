@@ -10,7 +10,7 @@ from django.test import RequestFactory
 
 from contentstore.views.course import _accessible_courses_list, _accessible_courses_list_from_groups
 from contentstore.tests.utils import AjaxEnabledTestClient
-from courseware.tests.factories import UserFactory
+from student.tests.factories import UserFactory
 from student.roles import CourseInstructorRole, CourseStaffRole
 from xmodule.modulestore import Location
 from xmodule.modulestore.django import loc_mapper
