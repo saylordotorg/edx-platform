@@ -35,6 +35,12 @@ edX Studio
 
 * A problem with importing a course with conditionals into a course of a different name is now fixed. (STUD-149)
 
+* Developers can now include key-value pairs as a configurable setting in Studio without a special interface. This will be applicable to developers adding multiple-language video transcripts, the LTI custom parameters field, or any field where possible inputs are not known at compile-time. (BLD-658)
+
+* The Add button no longer becomes unavailable in some situations after you click Clear next to Video Sources in a Video component. (BLD-821)
+
+* Instructors can again post non-.srt video transcripts for students to download. (BLD-837)
+
 
 ***************************************
 edX Learning Management System
@@ -42,6 +48,7 @@ edX Learning Management System
 
 * Timeouts on large courses possibly due to calculating grade histograms (LMS-1199)
 
+* When a student stops playing a video before it ends and closes the browser, the video starts from the place where the student stopped watching the next time the student views the video. (BLD-385)
 
 
 ===========================
@@ -50,11 +57,4 @@ Accessibility Improvements
 
 * Labels are added to input fields for problems, so they can be used by screen readers. (LMS-1895)
 
-
-
-***************************************
-Discussions
-***************************************
-
-* 
 
