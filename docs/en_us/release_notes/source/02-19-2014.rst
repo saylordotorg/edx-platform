@@ -1,0 +1,60 @@
+###################################
+February 19, 2014
+###################################
+
+You can now access the public edX roadmap_ for details about the currently planned product direction.
+
+.. _roadmap: https://edx-wiki.atlassian.net/wiki/display/OPENPROD/OpenEdX+Public+Product+Roadmap
+
+
+Course staff documentation, *Building a Course with edX Studio*, is available online_. You can also download the new guide as a PDF from the edX Studio user interface.
+
+.. _online: http://edx.readthedocs.org/projects/ca/en/latest/
+
+Recent documentation additions include:
+
+* `Additional transcripts <http://edx.readthedocs.org/projects/ca/en/latest/create_video.html#additional-transcripts>`_ for videos.
+
+* `Course Data <http://edx.readthedocs.org/projects/ca/en/latest/course_data.html#course-data>`_ in the instructor dashboard.
+
+* `Staffing data <http://edx.readthedocs.org/projects/ca/en/latest/course_staffing.html#course-staffing>`_ in the instructor dashboard.
+
+* `Enrollment data <http://edx.readthedocs.org/projects/ca/en/latest/course_enrollment.html#enrollment>`_ in the instructor dashboard.
+
+* The `Gene Explorer <http://edx.readthedocs.org/projects/ca/en/latest/additional_tools.html#gene-explorer>`_ tool.
+
+
+*************
+edX Studio
+*************
+
+
+* Export to GIT
+
+* Open Source PR: 2334. Editing course short_description in studio (STUD-1233) IN PRODUCTION?
+
+* A problem with importing a course with conditionals into a course of a different name is now fixed. (STUD-149)
+
+
+***************************************
+edX Learning Management System
+***************************************
+
+* Timeouts on large courses possibly due to calculating grade histograms (LMS-1199)
+
+
+
+===========================
+Accessibility Improvements
+===========================
+
+* Labels are added to input fields for problems, so they can be used by screen readers. (LMS-1895)
+
+
+
+***************************************
+Discussions
+***************************************
+
+* 
+
