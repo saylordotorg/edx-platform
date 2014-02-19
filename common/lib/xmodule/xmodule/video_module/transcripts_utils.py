@@ -382,7 +382,7 @@ def manage_video_subtitles_save(item, user, old_metadata=None, generate_translat
 
         # 2.
         if generate_translation:
-            old_langs, new_langs = set(old_metadata.get('transcripts', {})) if old_metadata else set()
+            old_langs = set(old_metadata.get('transcripts', {})) if old_metadata else set()
             new_langs = set(item.transcripts)
 
             for lang in old_langs.difference(new_langs): # 2a
