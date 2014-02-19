@@ -431,7 +431,7 @@ def asset_location(location, filename):
 
 def asset(location, subs_id, lang='en'):
     """
-    Get asset from contentstore, asset location is build from subs_id and lang.
+    Get asset from contentstore, asset location is built from subs_id and lang.
 
     `location` is module location.
     """
