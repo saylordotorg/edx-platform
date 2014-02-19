@@ -189,8 +189,8 @@ def _accessible_courses_list_from_groups(request):
     course_ids = set()
 
     user_staff_group_names = request.user.groups.filter(
-        Q(name__startswith='instructor_') | Q(name__startswith='staff_')).values_list('name', flat=True
-    )
+        Q(name__startswith='instructor_') | Q(name__startswith='staff_')
+    ).values_list('name', flat=True)
 
     # we can only get course_ids from role names with the new format (instructor_org/number/run or
     # instructor_org.number.run but not instructor_number).
