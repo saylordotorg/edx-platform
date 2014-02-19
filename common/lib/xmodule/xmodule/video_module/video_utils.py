@@ -1,3 +1,6 @@
+"""
+Module containts utils specific for video_module but not for transcripts.
+"""
 
 def create_youtube_string(module):
     """
