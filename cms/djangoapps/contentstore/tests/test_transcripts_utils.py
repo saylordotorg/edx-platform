@@ -18,6 +18,7 @@ from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.exceptions import NotFoundError
 from xmodule.contentstore.django import contentstore, _CONTENTSTORE
 from xmodule.video_module import transcripts_utils
+from django.utils import translation
 
 from contentstore.tests.modulestore_config import TEST_MODULESTORE
 TEST_DATA_CONTENTSTORE = copy.deepcopy(settings.CONTENTSTORE)
@@ -182,7 +183,6 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
     def setUp(self):
         self.course = CourseFactory.create(
             org=self.org, number=self.number, display_name=self.display_name)
-        self.i18n = Mock(ugettext=lambda string: string)
 
     def tearDown(self):
         MongoClient().drop_database(TEST_DATA_CONTENTSTORE['DOC_STORE_CONFIG']['db'])
@@ -208,7 +208,7 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         with patch('xmodule.video_module.transcripts_utils.requests.get') as mock_get:
             mock_get.return_value=Mock(status_code=200, text=response, content=response)
             # Check transcripts_utils.GetTranscriptsFromYouTubeException not thrown
-            transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, self.i18n)
+            transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, translation)
 
         mock_get.assert_any_call('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_id_1'})
         mock_get.assert_any_call('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_id_2'})
@@ -250,7 +250,7 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         self.clear_subs_content(bad_youtube_subs)
 
         with self.assertRaises(transcripts_utils.GetTranscriptsFromYouTubeException):
-            transcripts_utils.download_youtube_subs(bad_youtube_subs, self.course, settings, self.i18n)
+            transcripts_utils.download_youtube_subs(bad_youtube_subs, self.course, settings, translation)
 
         # Check assets status after importing subtitles.
         for subs_id in bad_youtube_subs.values():
@@ -276,7 +276,7 @@ class TestDownloadYoutubeSubs(ModuleStoreTestCase):
         self.clear_subs_content(good_youtube_subs)
 
         # Check transcripts_utils.GetTranscriptsFromYouTubeException not thrown
-        transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, self.i18n)
+        transcripts_utils.download_youtube_subs(good_youtube_subs, self.course, settings, translation)
 
         # Check assets status after importing subtitles.
         for subs_id in good_youtube_subs.values():
@@ -453,22 +453,19 @@ class TestYoutubeTranscripts(unittest.TestCase):
     """
     Tests for checking right datastructure returning when using youtube api.
     """
-    def setUp(self):
-        self.i18n = Mock(ugettext=lambda string: string)
-
     @patch('xmodule.video_module.transcripts_utils.requests.get')
     def test_youtube_bad_status_code(self, mock_get):
         mock_get.return_value=Mock(status_code=404, text='test')
         youtube_id = 'bad_youtube_id'
         with self.assertRaises(transcripts_utils.GetTranscriptsFromYouTubeException):
-            transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, self.i18n)
+            transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, translation)
 
     @patch('xmodule.video_module.transcripts_utils.requests.get')
     def test_youtube_empty_text(self, mock_get):
         mock_get.return_value=Mock(status_code=200, text='')
         youtube_id = 'bad_youtube_id'
         with self.assertRaises(transcripts_utils.GetTranscriptsFromYouTubeException):
-            transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, self.i18n)
+            transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, translation)
 
     def test_youtube_good_result(self):
         response = textwrap.dedent("""<?xml version="1.0" encoding="utf-8" ?>
@@ -487,6 +484,6 @@ class TestYoutubeTranscripts(unittest.TestCase):
         youtube_id = 'good_youtube_id'
         with patch('xmodule.video_module.transcripts_utils.requests.get') as mock_get:
             mock_get.return_value=Mock(status_code=200, text=response, content=response)
-            transcripts = transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, self.i18n)
+            transcripts = transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, translation)
         self.assertEqual(transcripts, expected_transcripts)
         mock_get.assert_called_with('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_youtube_id'})
