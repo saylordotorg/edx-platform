@@ -189,28 +189,32 @@ def _accessible_courses_list_from_groups(request):
     course_ids = set()
 
     user_staff_group_names = request.user.groups.filter(
-        Q(name__startswith='instructor_') | Q(name__startswith='staff_')).values_list('name', flat=True)
+        Q(name__startswith='instructor_') | Q(name__startswith='staff_')).values_list('name', flat=True
+    )
 
     # we can only get course_ids from role names with the new format (instructor_org/number/run or
     # instructor_org.number.run but not instructor_number).
     for user_staff_group_name in user_staff_group_names:
         # to avoid duplication try to convert all course_id's to format with dots e.g. "edx.course.run"
-        course_id = re.sub(r'^(instructor_|staff_)', '', user_staff_group_name).replace('/', '.').lower()
+        if user_staff_group_name.startswith("instructor_"):
+            course_id = user_staff_group_name[11:].replace('/', '.').lower()
+        else:
+            course_id = user_staff_group_name[6:].replace('/', '.').lower()
+
         course_ids.add(course_id)
 
-    for course_id in list(course_ids):
-        # get course_location with lowercase id
+    for course_id in course_ids:
+        # get course_location with lowercase idget_item
         course_location = loc_mapper().translate_locator_to_location(
-            CourseLocator(package_id=course_id), get_course=True, lower_only=True)
+            CourseLocator(package_id=course_id), get_course=True, lower_only=True
+        )
         if course_location is None:
-            return False, []
-        try:
-            course = modulestore('direct').get_item(course_location)
-            courses_list.append(course)
-        except ItemNotFoundError:
-            return False, []
+            raise ItemNotFoundError(course_id)
 
-    return True, courses_list
+        course = modulestore('direct').get_course(course_location.course_id)
+        courses_list.append(course)
+
+    return courses_list
 
 
 @login_required
@@ -225,10 +229,9 @@ def course_listing(request):
         # user has global access so no need to get courses from django groups
         courses = _accessible_courses_list(request)
     else:
-        success, courses_from_groups = _accessible_courses_list_from_groups(request)
-        if success:
-            courses = courses_from_groups
-        else:
+        try:
+            courses = _accessible_courses_list_from_groups(request)
+        except ItemNotFoundError:
             # user have some old groups or there was some error getting courses from django groups
             # so fallback to iterating through all courses
             courses = _accessible_courses_list(request)

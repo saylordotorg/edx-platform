@@ -3,10 +3,10 @@ Unit tests for getting the list of courses for a user through iterating all cour
 by reversing group name formats.
 """
 import random
-import time
+from chrono import Timer
 
 from django.contrib.auth.models import Group
-from django.http import HttpRequest
+from django.test import RequestFactory
 
 from contentstore.views.course import _accessible_courses_list, _accessible_courses_list_from_groups
 from contentstore.tests.utils import AjaxEnabledTestClient
@@ -14,12 +14,10 @@ from courseware.tests.factories import UserFactory
 from student.roles import CourseInstructorRole, CourseStaffRole
 from xmodule.modulestore import Location
 from xmodule.modulestore.django import loc_mapper
+from xmodule.modulestore.exceptions import ItemNotFoundError
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
-GROUP_NAME_WITH_DOTS = u'group_name_with_dots'
-GROUP_NAME_WITH_SLASHES = u'group_name_with_slashes'
-GROUP_NAME_WITH_COURSE_NAME_ONLY = u'group_name_with_course_name_only'
 TOTAL_COURSES_COUNT = 1000
 USER_COURSES_COUNT = 50
 
@@ -35,12 +33,11 @@ class TestCourseListing(ModuleStoreTestCase):
         super(TestCourseListing, self).setUp()
         # create and log in a staff user.
         self.user = UserFactory(is_staff=True)  # pylint: disable=no-member
-        self.request = HttpRequest()
-        self.request.user = self.user
+        self.factory = RequestFactory()
         self.client = AjaxEnabledTestClient()
         self.client.login(username=self.user.username, password='test')
 
-    def _create_course_with_access_groups(self, course_location, group_name_format=GROUP_NAME_WITH_DOTS, user=None):
+    def _create_course_with_access_groups(self, course_location, group_name_format='group_name_with_dots', user=None):
         """
         Create dummy course with 'CourseFactory' and role (instructor/staff) groups with provided group_name_format
         """
@@ -56,10 +53,10 @@ class TestCourseListing(ModuleStoreTestCase):
         for role in [CourseInstructorRole, CourseStaffRole]:
             # pylint: disable=protected-access
             groupnames = role(course_locator)._group_names
-            if group_name_format == GROUP_NAME_WITH_COURSE_NAME_ONLY:
+            if group_name_format == 'group_name_with_course_name_only':
                 # Create role (instructor/staff) groups with course_name only: 'instructor_run'
                 group, _ = Group.objects.get_or_create(name=groupnames[2])
-            elif group_name_format == GROUP_NAME_WITH_SLASHES:
+            elif group_name_format == 'group_name_with_slashes':
                 # Create role (instructor/staff) groups with format: 'instructor_edX/Course/Run'
                 # Since "Group.objects.get_or_create(name=groupnames[1])" would have made group with lowercase name
                 # so manually create group name of old type
@@ -86,16 +83,19 @@ class TestCourseListing(ModuleStoreTestCase):
         """
         Test getting courses with new access group format e.g. 'instructor_edx.course.run'
         """
+        request = self.factory.get('/course')
+        request.user = self.user
+
         course_location = Location(['i4x', 'Org1', 'Course1', 'course', 'Run1'])
-        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
+        self._create_course_with_access_groups(course_location, 'group_name_with_dots', self.user)
 
         # get courses through iterating all courses
-        courses_list = _accessible_courses_list(self.request)
+        courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), 1)
 
         # get courses by reversing group name formats
-        success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        self.assertTrue(success)
+        courses_list_by_groups = _accessible_courses_list_from_groups(request)
+        # self.assertTrue(success)
         self.assertEqual(len(courses_list_by_groups), 1)
         # check both course lists have same courses
         self.assertEqual(courses_list, courses_list_by_groups)
@@ -104,47 +104,48 @@ class TestCourseListing(ModuleStoreTestCase):
         """
         Test getting all courses with old course role (instructor/staff) groups
         """
+        request = self.factory.get('/course')
+        request.user = self.user
+
         # create a course with new groups name format e.g. 'instructor_edx.course.run'
         course_location = Location(['i4x', 'Org_1', 'Course_1', 'course', 'Run_1'])
-        self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
+        self._create_course_with_access_groups(course_location, 'group_name_with_dots', self.user)
 
         # create a course with old groups name format e.g. 'instructor_edX/Course/Run'
         old_course_location = Location(['i4x', 'Org_2', 'Course_2', 'course', 'Run_2'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES, self.user)
+        self._create_course_with_access_groups(old_course_location, 'group_name_with_slashes', self.user)
 
         # get courses through iterating all courses
-        courses_list = _accessible_courses_list(self.request)
+        courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), 2)
 
         # get courses by reversing groups name
-        success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        self.assertTrue(success)
+        courses_list_by_groups = _accessible_courses_list_from_groups(request)
+        # self.assertTrue(success)
         self.assertEqual(len(courses_list_by_groups), 2)
 
         # create a new course with older group name format (with dots in names) e.g. 'instructor_edX/Course.name/Run.1'
         old_course_location = Location(['i4x', 'Org.Foo.Bar', 'Course.number', 'course', 'Run.name'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_SLASHES, self.user)
+        self._create_course_with_access_groups(old_course_location, 'group_name_with_slashes', self.user)
         # get courses through iterating all courses
-        courses_list = _accessible_courses_list(self.request)
+        courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), 3)
         # get courses by reversing group name formats
-        success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        self.assertTrue(success)
+        courses_list_by_groups = _accessible_courses_list_from_groups(request)
+        # self.assertTrue(success)
         self.assertEqual(len(courses_list_by_groups), 3)
 
         # create a new course with older group name format e.g. 'instructor_Run'
         old_course_location = Location(['i4x', 'Org_3', 'Course_3', 'course', 'Run_3'])
-        self._create_course_with_access_groups(old_course_location, GROUP_NAME_WITH_COURSE_NAME_ONLY, self.user)
+        self._create_course_with_access_groups(old_course_location, 'group_name_with_course_name_only', self.user)
 
         # get courses through iterating all courses
-        courses_list = _accessible_courses_list(self.request)
+        courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), 4)
 
-        # get courses by reversing group name formats
-        success, courses_list_by_groups = _accessible_courses_list_from_groups(self.request)
-        # check that getting course with this older format of access group fails for this format
-        self.assertFalse(success)
-        self.assertEqual(courses_list_by_groups, [])
+        # should raise an exception for getting courses with older format of access group by reversing django groups
+        with self.assertRaises(ItemNotFoundError):
+            courses_list_by_groups = _accessible_courses_list_from_groups(request)
 
     def test_course_listing_performance(self):
         """
@@ -154,50 +155,45 @@ class TestCourseListing(ModuleStoreTestCase):
         """
         # create and log in a non-staff user
         self.user = UserFactory()
-        self.request.user = self.user
+        request = self.factory.get('/course')
+        request.user = self.user
         self.client.login(username=self.user.username, password='test')
 
         # create list of random course numbers which will be accessible to the user
-        user_course_ids = random.sample(range(1, TOTAL_COURSES_COUNT + 1), USER_COURSES_COUNT)
+        user_course_ids = random.sample(range(TOTAL_COURSES_COUNT), USER_COURSES_COUNT)
 
         # create courses and assign those to the user which have their number in user_course_ids
-        for number in range(1, TOTAL_COURSES_COUNT + 1):
+        for number in range(1, TOTAL_COURSES_COUNT):
             org = 'Org{0}'.format(number)
             course = 'Course{0}'.format(number)
             run = 'Run{0}'.format(number)
             course_location = Location(['i4x', org, course, 'course', run])
             if number in user_course_ids:
-                self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS, self.user)
+                self._create_course_with_access_groups(course_location, 'group_name_with_dots', self.user)
             else:
-                self._create_course_with_access_groups(course_location, GROUP_NAME_WITH_DOTS)
+                self._create_course_with_access_groups(course_location, 'group_name_with_dots')
 
         # time the get courses by iterating through all courses
-        start_time = time.time()
-        courses_list = _accessible_courses_list(self.request)
-        iteration_over_courses_time_1 = time.time() - start_time
+        with Timer() as iteration_over_courses_time_1:
+            courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time again the get courses by iterating through all courses
-        start_time = time.time()
-        courses_list = _accessible_courses_list(self.request)
-        iteration_over_courses_time_2 = time.time() - start_time
+        with Timer() as iteration_over_courses_time_2:
+            courses_list = _accessible_courses_list(request)
         self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time the get courses by reversing django groups
-        start_time = time.time()
-        success, courses_list = _accessible_courses_list_from_groups(self.request)
-        iteration_over_groups_time_1 = time.time() - start_time
-        self.assertTrue(success)
+        with Timer() as iteration_over_groups_time_1:
+            courses_list = _accessible_courses_list_from_groups(request)
         self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # time again the get courses by reversing django groups
-        start_time = time.time()
-        success, courses_list = _accessible_courses_list_from_groups(self.request)
-        iteration_over_groups_time_2 = time.time() - start_time
-        self.assertTrue(success)
+        with Timer() as iteration_over_groups_time_2:
+            courses_list = _accessible_courses_list_from_groups(request)
         self.assertEqual(len(courses_list), USER_COURSES_COUNT)
 
         # test that the time taken by getting courses through reversing django groups is lower then the time
         # taken by traversing through all courses (if accessible courses are relatively small)
-        self.assertGreaterEqual(iteration_over_courses_time_1, iteration_over_groups_time_1)  # simple fetch time
-        self.assertGreaterEqual(iteration_over_courses_time_2, iteration_over_groups_time_2)  # cache fetch time
+        self.assertGreaterEqual(iteration_over_courses_time_1.elapsed, iteration_over_groups_time_1.elapsed)
+        self.assertGreaterEqual(iteration_over_courses_time_2.elapsed, iteration_over_groups_time_2.elapsed)

@@ -261,19 +261,16 @@ class LocMapperStore(object):
                         None)
 
                     if lower_only:
-                        published_locator = BlockUsageLocator(
-                            candidate['lower_course_id'], branch=candidate['prod_branch'], block_id=block_id
-                        )
-                        draft_locator = BlockUsageLocator(
-                            candidate['lower_course_id'], branch=candidate['draft_branch'], block_id=block_id
-                        )
+                        candidate_key = "lower_course_id"
                     else:
-                        published_locator = BlockUsageLocator(
-                            candidate['course_id'], branch=candidate['prod_branch'], block_id=block_id
-                        )
-                        draft_locator = BlockUsageLocator(
-                            candidate['course_id'], branch=candidate['draft_branch'], block_id=block_id
-                        )
+                        candidate_key = "course_id"
+
+                    published_locator = BlockUsageLocator(
+                        candidate[candidate_key], branch=candidate['prod_branch'], block_id=block_id
+                    )
+                    draft_locator = BlockUsageLocator(
+                        candidate[candidate_key], branch=candidate['draft_branch'], block_id=block_id
+                    )
                     self._cache_location_map_entry(old_course_id, location, published_locator, draft_locator)
 
                     if get_course and category == 'course':
@@ -385,10 +382,10 @@ class LocMapperStore(object):
         """
         Construct the SON needed to represent the location with lower case
         """
-        if name:
-            return self._construct_location_son(org.lower(), course.lower(), name.lower())
-        else:
-            return self._construct_location_son(org.lower(), course.lower(), None)
+        if name is not None:
+            name = name.lower()
+
+        return self._construct_location_son(org.lower(), course.lower(), name)
 
     def _block_id_is_guid(self, name):
         """
@@ -468,9 +465,11 @@ class LocMapperStore(object):
         course root.
         """
         if lower_only:
-            return self.cache.get(u'courseIdLower+{}'.format(locator_package_id.lower()))
+            cache_key = u'courseIdLower+{}'.format(locator_package_id.lower())
+        else:
+            cache_key = u'courseId+{}'.format(locator_package_id)
 
-        return self.cache.get(u'courseId+{}'.format(locator_package_id))
+        return self.cache.get(cache_key)
 
     def _cache_course_locator(self, old_course_id, published_course_locator, draft_course_locator):
         """
