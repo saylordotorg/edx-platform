@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="Open edX",
+    name="SaylorX",
     version="0.1",
     install_requires=['distribute'],
     requires=[],
